@@ -1,0 +1,63 @@
+---
+title: "Importing Datasets"
+output: html_notebook
+---
+
+
+```{r, message = FALSE, error = FALSE}
+library(tidyverse)
+```
+
+
+Importing the soft tissue risk status dataset and selecting only the anon_id, the date the risk status was assessed, the status outputted, and notes.
+Importing the incident report and selecting only the bellow variables. This leaves out variables like:
+- Sport since all observations are related to football so this variable does not give much information.
+- MRN (Medical Record Number) since we can already uniquely identrify observations by anon_id
+- Medical Alerts/View medical alerts
+- Converted to injury from maintenance records
+- Incident type
+- Injury date is estimate/Injury time/Injury time is estimate
+- Days to exam/Continue with evaluation
+- Coach and OSICS diagnoses
+- Medical system and etiology
+- All repeated OSICS/ICD codes and diagnoses
+- Immediate managment
+
+
+```{r}
+risk_status <- read_csv('data-sets/data-sets-uncompressed/Soft Tissue Risk Status Report FB.csv') %>%
+  transmute(anon_id, date_risk = Date, risk_status = Status, notes = Notes)
+
+incident_report <- read_csv('data-sets/data-sets-uncompressed/Incident Report FB.csv') %>%
+  transmute(anon_id, position = Position, date_injury = Date.of.Injury...Onset.of.symptoms, side = Side, body_part = Body.Part, tissue = Tissue.Type, pathology = Pathology.Type, OSICS14_code = OSICS14.Code, OSICS10_code = OSICS10.Code, OSICS10_diagnosis = OSICS10.Diagnosis, diagnosis_final = Final.Diagnosis, result_sport = Result.of.Sport.Participation, recurrence = Recurrence.of.Injury, onset_symptoms = Onset.of.Symptoms, prognosis = Injury.Prognosis, mechanism = General.Mechanism, specific_mechanism = Specific.Mechanism, event = Type.of.Event, time_frame_injury = Time.Frame.of.Injury.Event, season = Season., surface = Surface., status = Current.Status)
+```
+
+
+Incident report of just hamstring related injuries. 
+
+
+```{r}
+hamstring_OSICS14 <- c('TM1', 'TMB', 'TMS', 'TR1')
+
+incident_report_HSI <- incident_report %>%
+  filter(OSICS14_code %in% hamstring_OSICS14) %>%
+  group_by(across(everything())) %>%
+  summarise(.groups = 'drop')
+```
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
