@@ -1,0 +1,38 @@
+Notes Log:
+
+Title: Carter's Notes
+Date: 6/5/25-6/9/25
+
+Incidence Report Football:
+
+Hamstring tear/strain: TM1 (OSICS14.code), TMHX (OMICS10.code)
+Semimembranosus/tendinitis strain (grade 1-2): TMS (OSICS14.code), TMHS (OMICS10.code)
+
+Both have S76.3 ICD10.code
+
+Probably use complete evaluation, could consider other injuries the players with hamstring injuries are dealing with, especially in hip/groin area, can consider if result of sport injury and recurrence of injury
+Lots of duplicate entries
+
+Percentage of event completed and event type could show fatigue
+
+Could look at field type
+
+Days in status or total time injured or total.time.injured1
+
+Injury.Date_c, FinalDiagnosisIncidentDate, 
+
+VALD:
+
+Trend, Maximum.Force, Nordic.Left.MAX, Nordic.Right.MAX, Percent.Difference.Norm, Nordic.Maximum.Bilateral.Force, Nordic.MEAN.Imbalance
+
+Strength Testing dataset contains ratios between quadriceps and hamstrings
+
+Performance Risk Assessment dataset has hamstring eccentric vs concentric with only 115 observations
+
+Could try to experiment with running data although not included in their model
+
+HSI includes: TM1 (hamstring strain), TMB (biceps femoris strain grade 1-2), TMH (hamstring cramping), TMS (semimembranosis/tendinosis sprain grade 1-2), TMY (trigger points), TR1 (hamstring tendon injury)
+Quads: THQ (haematoma), TMCQ (quad cramping), TMR (rectus femoris strain), TMT (trigger points)
+Adductors: TMAL (adductor longus strain), TMM (adductor magnus strain)
+Glutes: TMG (gluteus medius/minimus strain)
+Other: THT (thigh haematoma), THX (other bruising), TIX (thigh abrasion), TMC (thigh cramping), TML (back muscle tightness), TMZ (thigh muscle strain/spasms/trigger points)
