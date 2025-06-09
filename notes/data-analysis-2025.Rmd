@@ -1,0 +1,64 @@
+---
+title: "Data Analysis Notebook"
+output: html_notebook
+---
+
+```{r}
+#Authors: [Sydney Stanton]
+#Author Date: 06/09/2025
+#Purpose: The purpose of this notebook is to house all data set transformation, cleansing, visualization, statistical analysis, and note-taking for the 2025 CU Athletic Department Sports Science Internship Program
+
+#LAST UPDATED: 06/09/2025
+
+#Including helpful libraries
+library(tidyverse)
+library(readxl)
+library(aod)
+library(tidyverse)
+library(tidyr)
+library(dplyr)
+library(ggplot2)
+```
+
+```{r}
+#load all of the useful datasets
+ACWR <- read.csv("~/T2P1-data-analysis-2025/data-sets/ACWR- Catapult FB.csv")
+catapult <- read.csv("~/T2P1-data-analysis-2025/data-sets/Catapult Session - Outdoor FB.csv")
+incident <- read.csv("~/T2P1-data-analysis-2025/data-sets/Incident Report FB.csv")
+perfnorm <- read.csv("~/T2P1-data-analysis-2025/data-sets/Performance Normative Data FB.csv")
+perfrisk <- read.csv("~/T2P1-data-analysis-2025/data-sets/Performance Risk Assessment FB.csv")
+riskstatus <- read.csv("~/T2P1-data-analysis-2025/data-sets/Soft Tissue Risk Status Report FB.csv")
+strengthtest <- read.csv("~/T2P1-data-analysis-2025/data-sets/Strength Testing Data FB.csv")
+VALD <- read.csv("~/T2P1-data-analysis-2025/data-sets/VALD - Performance Test FB.csv")
+wellness <- read.csv("~/T2P1-data-analysis-2025/data-sets/Wellness Report FB.csv")
+```
+
+```{r}
+#refined risk status dataset
+#contains response variable 
+Riskstatus <- riskstatus[,-c(3,5)]
+```
+
+```{r}
+#refined ACWR dataset 
+Acwr <- subset(ACWR,select=c("anon_id","Position","Total.Player.Load","Acute.Total.Acceleration.Load.EWMA","Acceleration.Load.ACWR","Player.Load.ACWR","Total.Distance.ACWR"))
+Acwr <- na.omit(Acwr)
+```
+
+```{r}
+#refined catapult session outdoor dataset
+Catapult <- subset(catapult,select=c("anon_id", "Sport", "Primary.Position" ,"Activity", "Venue.Name", "Position"))
+Catapult<- na.omit(Catapult)
+
+#sort out any non football values
+Catapult <- Catapult %>%
+filter(Sport=="FOOTBALL")
+
+#remove sport column
+Catapult <- Catapult[,-c(2)]
+```
+
+```{r}
+
+
+``
