@@ -39,8 +39,8 @@ This is a weekly schedule **per project**. The aim of this internship is to comp
 
 For the regularly scheduled check-ins, we will meet twice a week. Our first team meeting will take place on Tuesday, June 3, 2025 at 9:30am. Both teams and Sports Science staff will be a part of this meeting as a sort of orientation type meeting. After that, we will start our biweekly meetings using the following schedule:
 
-- Team 1: Mondays @ 9:30am, Thursdays @ 9:30am
-- Team 2: Mondays @ 10:00am, Thursdays @ 10:00am
+- Team 1: Mondays @ 9:15am, Thursdays @ 9:15am
+- Team 2: Mondays @ 9:45am, Thursdays @ 9:45am
 
 If your team needs or wants additional meetings, please reach out to us and we are happy to add times throughout the course of the internship!
 
@@ -71,11 +71,11 @@ Key Deliverables:
   
 ### Project Roadmap
 
-This project roadmap will be the blueprint for your team in completing your project. Broken down into week-by-week milestones, this will guide not only your team, but Sports Science staff in our bi-weekly meetings and give us a better idea as to where you may encounter issues. This roadmap is not intended to be a concrete final document, but a flexible and fluid document that will change based on project flow, discoveries, and additional requirements provided by key stakeholders. Some suggested additions to get your roadmap started are hypothesis statements, documentation style and modality (i.e. we will be taking notes in x format), timelines, work assignments, and/or intra-team meeting schedules. Please put this file in PDF format in the `./general-documents/week-1-deliverables` folder by EoD Friday of Week 1.
+This project roadmap will be the blueprint for your team in completing your project. Broken down into week-by-week milestones, this will guide not only your team, but Sports Science staff in our bi-weekly meetings and give us a better idea as to where you may encounter issues. This roadmap is not intended to be a concrete final document, but a flexible and fluid document that will change based on project flow, discoveries, and additional requirements provided by key stakeholders. Some suggested additions to get your roadmap started are hypothesis statements, documentation style and modality (i.e. we will be taking notes in x format), timelines, work assignments, and/or intra-team meeting schedules. Please put this file in PDF format in the `./general-documents/week-1-deliverables` folder by EoD Tuesday of Week 2.
 
 ### Condensed Literature Review
 
-Within the `general-documents` folder, there will be a document containing compiled relevant literature on the pertinent topic of this project. Using this literature, please find a few more sources and summarize your findings in a 2-3 page document. 1-2 paragraphs per found source will be sufficient. The main objective of this document is to get you thinking about other variables or influences on your data to guide your analysis. Sports Science staff will also be available throughout this week to help verify the viability of your selected sources as helpful or misleading. Please put this file in PDF format in the `./general-documents/week-1-deliverables` folder by EoD Friday of Week 1.
+Within the `general-documents` folder, there will be a document containing compiled relevant literature on the pertinent topic of this project. Using this literature, please find a few more sources and summarize your findings in a 2-3 page document. 1-2 paragraphs per found source will be sufficient. The main objective of this document is to get you thinking about other variables or influences on your data to guide your analysis. Sports Science staff will also be available throughout this week to help verify the viability of your selected sources as helpful or misleading. Please put this file in PDF format in the `./general-documents/week-1-deliverables` folder by EoD Tuesday of Week 2.
 
 ### Peer/ Performance Review
 The `general-documents` folder will contain a performance review document entitled `Week 1 Review.docx`. During our Thursday meeting times, a Sports Science staff member will sit down with you and complete a review of the first week. We will cover team cohesion, any roadblocks moving forward, and plans moving forwards. The objective of this deliverable is to keep you on-track and accountable. Please put this file in PDF format in the `./general-documents/week-1-deliverables` folder by EoD Friday of Week 1.

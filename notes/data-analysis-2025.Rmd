@@ -4,7 +4,9 @@ output: html_notebook
 ---
 
 ```{r}
+
 #Authors: [Sydney Stanton, Carter Zborowski]
+
 #Author Date: 06/09/2025
 #Purpose: The purpose of this notebook is to house all data set transformation, cleansing, visualization, statistical analysis, and note-taking for the 2025 CU Athletic Department Sports Science Internship Program
 
@@ -59,6 +61,7 @@ Catapult <- Catapult[,-c(2)]
 ```
 
 ```{r}
+
 #selecting the variables of interest within the incident report
 Incident <- subset(incident,select=c("anon_id", "Position", "Date.of.Injury...Onset.of.symptoms", "Side", "Body.Part", "Tissue.Type", "Pathology.Type", "OSICS14.Code", "OSICS10.Code", "OSICS10.Diagnosis", "Final.Diagnosis", "Result.of.Sport.Participation", "Recurrence.of.Injury", "Injury.Prognosis", "General.Mechanism", "Specific.Mechanism", "FinalDiagnosisIncidentDate"))
 ```
