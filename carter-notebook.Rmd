@@ -6,50 +6,252 @@ output: html_notebook
 
 ```{r, message = FALSE, error = FALSE}
 library(tidyverse)
+library(readxl)
+library(aod)
+library(tidyverse)
+library(tidyr)
+library(dplyr)
+library(ggplot2)
 ```
 
 
-Importing the soft tissue risk status dataset and selecting only the anon_id, the date the risk status was assessed, the status outputted, and notes.
-Importing the incident report and selecting only the bellow variables. This leaves out variables like:
-- Sport since all observations are related to football so this variable does not give much information.
-- MRN (Medical Record Number) since we can already uniquely identrify observations by anon_id
-- Medical Alerts/View medical alerts
-- Converted to injury from maintenance records
-- Incident type
-- Injury date is estimate/Injury time/Injury time is estimate
-- Days to exam/Continue with evaluation
-- Coach and OSICS diagnoses
-- Medical system and etiology
-- All repeated OSICS/ICD codes and diagnoses
-- Immediate managment
-
-
 ```{r}
-risk_status <- read_csv('data-sets/data-sets-uncompressed/Soft Tissue Risk Status Report FB.csv') %>%
-  transmute(anon_id, date_risk = Date, risk_status = Status, notes = Notes)
-
-incident_report <- read_csv('data-sets/data-sets-uncompressed/Incident Report FB.csv') %>%
-  transmute(anon_id, position = Position, date_injury = Date.of.Injury...Onset.of.symptoms, side = Side, body_part = Body.Part, tissue = Tissue.Type, pathology = Pathology.Type, OSICS14_code = OSICS14.Code, OSICS10_code = OSICS10.Code, OSICS10_diagnosis = OSICS10.Diagnosis, diagnosis_final = Final.Diagnosis, result_sport = Result.of.Sport.Participation, recurrence = Recurrence.of.Injury, onset_symptoms = Onset.of.Symptoms, prognosis = Injury.Prognosis, mechanism = General.Mechanism, specific_mechanism = Specific.Mechanism, event = Type.of.Event, time_frame_injury = Time.Frame.of.Injury.Event, season = Season., surface = Surface., status = Current.Status)
+#load all of the useful datasets
+ACWR <- read_csv('data-sets/data-sets-uncompressed/ACWR- Catapult FB.csv')
+catapult <- read_csv('data-sets/data-sets-uncompressed/Catapult Session - Outdoor FB.csv')
+incident <- read_csv('data-sets/data-sets-uncompressed/Incident Report FB.csv')
+perfnorm <- read_csv('data-sets/data-sets-uncompressed/Performance Normative Data FB.csv')
+perfrisk <- read_csv('data-sets/data-sets-uncompressed/Performance Risk Assessment FB.csv')
+riskstatus <- read_csv('data-sets/data-sets-uncompressed/Soft Tissue Risk Status Report FB.csv')
+strengthtest <- read_csv('data-sets/data-sets-uncompressed/Strength Testing Data FB.csv')
+VALD <- read_csv('data-sets/data-sets-uncompressed/VALD - Performance Test FB.csv')
+wellness <- read_csv('data-sets/data-sets-uncompressed/Wellness Report FB.csv')
 ```
 
 
-Incident report of just hamstring related injuries. 
+```{r}
+#refined risk status dataset
+#contains response variable 
+Riskstatus <- riskstatus[,-5]
+```
+
+
+# ACWR Dataset
 
 
 ```{r}
-hamstring_OSICS14 <- c('TM1', 'TMB', 'TMS', 'TR1')
+#refined ACWR dataset 
+Acwr <- subset(ACWR,select=c("anon_id", "Date", "Position", "Total.Player.Load", "Acceleration.Load.EWMA.ACWR", "Acceleration.Load.ACWR", "Player.Load.ACWR", "Total.Distance.ACWR"))
+Acwr <- Acwr %>%
+  na.omit() %>%
+  mutate(Date = as.Date(Date, format = '%m/%d/%Y'))
+```
 
-incident_report_HSI <- incident_report %>%
-  filter(OSICS14_code %in% hamstring_OSICS14) %>%
+```{r}
+ggplot(Acwr, aes(Acceleration.Load.EWMA.ACWR)) + 
+  geom_histogram(bins = 30, fill = 'royalblue', color = 'black') + 
+  labs(title = 'Distribution of Total Player Load',
+       x = 'Total Player Load',
+       y = 'Number of Players') +
+  theme_bw()
+
+Acwr_HSI <- Acwr %>%
+  filter(anon_id == 'ID_95', '2024-07-01' < Date & Date < '2024-12-01')
+
+ggplot(Acwr_HSI, aes(Acceleration.Load.EWMA.ACWR)) + 
+  geom_histogram(bins = 30, fill = 'royalblue', color = 'black') + 
+  labs(title = 'Distribution of Total Player Load in Players with HSI',
+       x = 'Total Player Load',
+       y = 'Number of Players') +
+  theme_bw()
+```
+
+
+```{r}
+#refined catapult session outdoor dataset
+Catapult <- subset(catapult,select=c("anon_id", "Position", "Date", "High.Speed.Distance", "Very.High.Speed.Distance", "Maximum.Velocity", "Average.Velocity", "IMA.Accel.Low", "IMA.Decel.Low", "IMA.Accel.Medium", "IMA.Decel.Medium", "IMA.Accel.High", "IMA.Decel.High", "IMA.Accel.Total", "IMA.Decel.Total", "Explosive.Efforts"))
+```
+
+```{r}
+#selecting the variables of interest within the incident report
+Incident <- subset(incident,select=c("anon_id", "Position", "Date.of.Injury...Onset.of.symptoms", "Side", "Body.Part", "Tissue.Type", "Pathology.Type", "OSICS14.Code", "OSICS10.Code", "OSICS10.Diagnosis", "Final.Diagnosis", "Result.of.Sport.Participation", "Recurrence.of.Injury", "Injury.Prognosis", "General.Mechanism", "Specific.Mechanism", "FinalDiagnosisIncidentDate", "Total.Time.Injured", "Month", "Year"))
+```
+
+```{r}
+#selecting variables of interest
+Vald <- subset(VALD, select = c("anon_id", "Session.Date", "Position", "Trend", "Maximum.Force", "Percent.Difference.Norm", "Nordic.Left.MAX", "Nordic.Right.MAX", "Nordic.MEAN.Imbalance.with.side", "Positional.Norm", "Nordic...Difference.from.First.Test", "Month", "Year"))
+
+vald <- Vald %>%
+  mutate(Session.Date = as.Date(Session.Date, format = '%m/%d/%Y')) %>%
+  group_by(anon_id, Month, Year, Trend) %>%
+  summarise(Maximum.Force = mean(Maximum.Force, na.rm = TRUE),
+            Percent.Difference.Norm = mean(Percent.Difference.Norm, na.rm = TRUE),
+            Nordic.Left.MAX = mean(Nordic.Left.MAX, na.rm = TRUE),
+            Nordic.Right.MAX = mean(Nordic.Right.MAX, na.rm = TRUE),
+            Nordic.MEAN.Imbalance.with.side = mean(Nordic.MEAN.Imbalance.with.side, na.rm = TRUE),
+            Positional.Norm = mean(Positional.Norm, na.rm = TRUE),
+            Nordic...Difference.from.First.Test = mean(Nordic...Difference.from.First.Test, na.rm = TRUE)) %>%
+  ungroup()
+```
+
+```{r}
+ggplot(vald, aes(x = Maximum.Force)) + 
+  geom_histogram(bins = 30, fill = 'royalblue', color = 'black') + 
+  labs(title = 'Distribution of Nordic Maximum Force',
+       x = 'Maximum Force',
+       y = 'Number of Athletes') +
+  theme_bw()
+```
+
+```{r}
+#selecting only the variables of interest: important to not that this only contains data from may to december of 2024
+Wellness <- subset(wellness, select = c("anon_id", "Date", "Mental.Score", "Physical.Score", "Sleep.Quality.Score", "Soreness.Score", "Overall.Wellness.Score", "Month", "Year"))
+
+#omit the N/A's
+Wellness2 <- Wellness %>%
+  na.omit() %>%
+  group_by(anon_id, Month, Year) %>%
+  summarise(Mental.Score = mean(Mental.Score),
+            Physical.Score = mean(Physical.Score),
+            Sleep.Quality.Score = mean(Sleep.Quality.Score),
+            Soreness.Score = mean(Soreness.Score),
+            Overall.Wellness.Score = mean(Overall.Wellness.Score))
+```
+
+
+# Generating Incident Report of Just HSI
+
+
+```{r, warning = FALSE}
+#filter for just hamstring related injuries and get rid of duplicate observations
+incident_HSI <- Incident %>%
+  filter(OSICS14.Code %in% hamstring_OSICS14) %>%
+  group_by(anon_id, Date.of.Injury...Onset.of.symptoms) %>%
+  mutate(Total.Time.Injured = sum(Total.Time.Injured, na.rm = TRUE)) %>%
+  ungroup() %>%
   group_by(across(everything())) %>%
   summarise(.groups = 'drop')
+
+incident_HSI <- incident_HSI[-14,]
+
+#creating a list of players who experienced HSI
+players_HSI <- unique(incident_HSI$anon_id)
+
+#consolidate same players into one observation
+incident_HSI2 <- incident_HSI %>%
+  mutate(Date = as.Date(Date.of.Injury...Onset.of.symptoms, format = '%m/%d/%Y')) %>%
+  arrange(Date) %>%
+  group_by(anon_id) %>%
+  summarize(Outcome = paste0(Date, collapse = " and ")) %>%
+  separate(Outcome, c('Injury.1', 'Injury.2', 'Injury.3', 'Injury.4'), sep = ' and ')
+```
+
+```{r}
+incident_HSI3 <- incident_HSI %>%
+  select(anon_id, Month, Year, Date.of.Injury...Onset.of.symptoms, Final.Diagnosis, Total.Time.Injured)
+
+incident_vald <- merge(incident_HSI3, vald, by = c('anon_id', 'Month', 'Year'), all = TRUE)
 ```
 
 
+## Validating the Soft-Tissue Watchlist
 
 
+```{r}
+#filtering just the high risk athletes from the watchlist
+Riskstatus_high <- Riskstatus %>%
+  filter(Status == 'High') %>%
+  mutate(Date = as.Date(Date, format = '%m/%d/%Y')) %>%
+  arrange(Date) %>%
+  group_by(anon_id) %>%
+  summarize(DateRisk = paste0(Date, collapse = " and "))
 
+#creating a list of the unique athlete ids that were deemed high risk
+high_risk <- unique(Riskstatus_high$anon_id)
+```
 
+```{r}
+#creating a list of the lower body areas in Body.Part and for OSICS codes for HSI
+lower_body <- c("Thigh", "Ankle", "Lower Leg", "Knee", "Foot", "Groin/hip")
+hamstring_OSICS14 <- c('TM1', 'TMB', 'TMS', 'TR1')
+
+#filtering the incident report to only show those deemed high risk with only lower body injuries as well as only HSI related injuries
+incident_hr_all <- Incident %>%
+  filter(anon_id %in% high_risk, Body.Part %in% lower_body) %>%
+  group_by(anon_id, Date.of.Injury...Onset.of.symptoms) %>%
+  mutate(Total.Time.Injured = sum(Total.Time.Injured, na.rm = TRUE)) %>%
+  ungroup() %>%
+  group_by(across(everything())) %>%
+  summarise(.groups = 'drop')
+
+incident_hr_HSI <- Incident %>%
+  filter(anon_id %in% high_risk, OSICS14.Code %in% hamstring_OSICS14) %>%
+  group_by(anon_id, Date.of.Injury...Onset.of.symptoms) %>%
+  mutate(Total.Time.Injured = sum(Total.Time.Injured, na.rm = TRUE)) %>%
+  ungroup() %>%
+  group_by(across(everything())) %>%
+  summarise(.groups = 'drop')
+
+#consolidates all injuries for these athletes into one column
+incident_hr_all2 <- incident_hr_all %>%
+  mutate(Date = as.Date(Date.of.Injury...Onset.of.symptoms, format = '%m/%d/%Y')) %>%
+  arrange(Date) %>%
+  group_by(anon_id) %>%
+  summarize(Outcome = paste0(FinalDiagnosisIncidentDate, collapse = " and "))
+
+incident_hr_HSI2 <- incident_hr_HSI %>%
+  mutate(Date = as.Date(Date.of.Injury...Onset.of.symptoms, format = '%m/%d/%Y')) %>%
+  arrange(Date) %>%
+  group_by(anon_id) %>%
+  summarize(Outcome = paste0(FinalDiagnosisIncidentDate, collapse = " and "))
+```
+
+```{r, warning = FALSE}
+#combines the dates the athletes were deemed high risk with their injuries and separates the injury occurrences and dates
+validation_all <- left_join(Riskstatus_high, incident_hr_all2, by = 'anon_id') %>%
+  separate(Outcome, c('Injury.1', 'Injury.2', 'Injury.3', 'Injury.4', 'Injury.5', 'Injury.6', 'Injury.7', 'Injury.8'), sep = ' and ') %>%
+  separate(DateRisk, c('Test.1', 'Test.2'), sep = ' and ')
+
+#combines the above but specifically for HSI and includes T/F for whether the athlete suffered their injury after their high risk assessment
+validation_HSI <- left_join(Riskstatus_high, incident_hr_HSI2, by = 'anon_id') %>%
+  separate(Outcome, c('Injury.1', 'Injury.2', 'Injury.3', 'Injury.4'), sep = ' and ') %>%
+  separate(DateRisk, c('Test.1', 'Test.2'), sep = ' and ')
+
+validation_HSI <- validation_HSI %>%
+  mutate(Injury.1.After = as.Date(str_sub(validation_HSI$Injury.1, start = -10), format = '%m/%d/%Y') > Test.1,
+         Injury.2.After = as.Date(str_sub(validation_HSI$Injury.2, start = -10), format = '%m/%d/%Y') > Test.1,
+         Injury.3.After = as.Date(str_sub(validation_HSI$Injury.3, start = -10), format = '%m/%d/%Y') > Test.1,
+         Injury.4.After = as.Date(str_sub(validation_HSI$Injury.4, start = -10), format = '%m/%d/%Y') > Test.1,
+         Injury.1.After.2 = as.Date(str_sub(validation_HSI$Injury.1, start = -10), format = '%m/%d/%Y') > Test.2,
+         Injury.2.After.2 = as.Date(str_sub(validation_HSI$Injury.2, start = -10), format = '%m/%d/%Y') > Test.2,
+         Injury.3.After.2 = as.Date(str_sub(validation_HSI$Injury.3, start = -10), format = '%m/%d/%Y') > Test.2,
+         Injury.4.After.2 = as.Date(str_sub(validation_HSI$Injury.4, start = -10), format = '%m/%d/%Y') > Test.2)
+         
+#adds columns that return 'Yes' if an injury occurred after the athlete was deemed high risk and a 'No' if no injury occurred after
+validation_HSI <- validation_HSI %>%
+         mutate(Test.1.Success = ifelse(rowSums(validation_HSI[, c('Injury.1.After', 'Injury.2.After', 'Injury.3.After', 'Injury.4.After')], na.rm = TRUE) > 0, 'Yes', 'No'),
+         Test.2.Success = ifelse(is.na(validation_HSI$Test.2), NA, ifelse(rowSums(validation_HSI[, c('Injury.1.After.2', 'Injury.2.After.2', 'Injury.3.After.2', 'Injury.4.After.2')], na.rm = TRUE) > 0, 'Yes', 'No')))
+```
+
+```{r}
+#combining tests and injury outcomes and creating a data frame that just contains the dates of the test results and whether an injury occurred for the athlete after these tests
+tests <- c(validation_HSI$Test.1, validation_HSI$Test.2)
+outcomes <- c(validation_HSI$Test.1.Success, validation_HSI$Test.2.Success)
+tests_outcomes <- data.frame(tests, outcomes) %>%
+  na.omit
+
+#calculating percent of the time right
+mean(tests_outcomes$outcomes == 'Yes')
+
+#visualizing using a bar plot 
+ggplot(tests_outcomes, aes(x = outcomes, fill = outcomes)) + 
+  geom_bar(color = 'black', show.legend = FALSE) +
+  scale_fill_manual(values = c('gold2', 'grey2')) + 
+  labs(title = 'Outcomes of Soft Tissue Watchlist (High Risk)',
+       x = 'Injury Occured After Deemed High Risk',
+       y = 'Number of Observations') + 
+  theme_bw()
+```
 
 
 
