@@ -10,7 +10,7 @@ output: html_notebook
 #Author Date: 06/09/2025
 #Purpose: The purpose of this notebook is to house all data set transformation, cleansing, visualization, statistical analysis, and note-taking for the 2025 CU Athletic Department Sports Science Internship Program
 
-#LAST UPDATED: 06/09/2025
+#LAST UPDATED: 06/12/2025
 
 #Including helpful libraries
 library(tidyverse)
@@ -20,11 +20,12 @@ library(tidyverse)
 library(tidyr)
 library(dplyr)
 library(ggplot2)
+library(lubridate)
 ```
 
 ```{r}
 #load all of the useful datasets
-ACWR <- read.csv("~/T2P1-data-analysis-2025/data-sets/ACWR- Catapult FB.csv")
+ACWR <- read.csv("~/T2P1-data-analysis-2025/data-sets/ACWR-Catapult FB.csv")
 catapult <- read.csv("~/T2P1-data-analysis-2025/data-sets/Catapult Session - Outdoor FB.csv")
 incident <- read.csv("~/T2P1-data-analysis-2025/data-sets/Incident Report FB.csv")
 perfnorm <- read.csv("~/T2P1-data-analysis-2025/data-sets/Performance Normative Data FB.csv")
@@ -46,9 +47,24 @@ Riskstatus <- riskstatus[,-5]
 ```
 
 ```{r}
-#refined ACWR dataset for what I assume to be most important predictors 
-Acwr <- subset(ACWR,select=c("anon_id","Position","Total.Player.Load","Acute.Total.Acceleration.Load.EWMA","Acceleration.Load.ACWR","Player.Load.ACWR","Total.Distance.ACWR"))
-Acwr <- na.omit(Acwr)
+library(dplyr)
+library(lubridate)
+#refined ACWR dataset 
+ACWR <- ACWR %>%
+  filter(Sport=="FOOTBALL")
+Acwr <- subset(ACWR,select=c("anon_id","Date","Position","Total.Player.Load","Acute.Total.Acceleration.Load.EWMA","Acceleration.Load.ACWR","Player.Load.ACWR","Total.Distance.ACWR"))
+
+#cut back to last 6 months (can repeat to do last 3 months aswell or instead)
+Acwr$Date <- mdy(Acwr$Date)
+
+current_date <- Sys.Date()
+start_date <- current_date- months(6)
+
+filtered_Acwr <- Acwr %>%
+  filter(Date >= start_date)
+
+#Filtered_Acwr <- na.omit(Filtered_Acwr)
+#optional cuts down 14k obs. to 2k obs.
 ```
 
 2. Catapult Session- Outdoor 
@@ -59,20 +75,35 @@ catapult <- catapult[,-c(16,19,20,21)]
 #sort out any non football values
 catapult <- catapult %>%
 filter(Sport=="FOOTBALL")
+catapult <- catapult[,-c(6)]  #remove sport column b/c not needed anymore
 
-#remove sport column b/c not needed anymore
-catapult <- catapult[,-c(6)]
+#cut back to last 6 months (can repeat to do last 3 months aswell or instead)
+catapult$Date <- mdy(catapult$Date)
+current_date <- Sys.Date()
+start_date <- current_date- months(6)
+catapult <- catapult %>%
+  filter(Date >= start_date)
+```
 
-#combine date (3rd column) + athlete (2nd column // anon_id) to make an average, maximum, or sum depending on variable 
+```{r}
+filtered_catapult <- subset(catapult,select=c("anon_id","Date","Primary.Position","Position","Total.Distance","Maximum.Velocity","Average.Velocity","TRIMP", "Velocity.Exertion", "Total.Player.Load", "Player.Load.min","Total.Acceleration.Load","Acceleration.Density.Index","Explosive.Efforts","Max.Acceleration","Max.Deceleration","Session.Mean.TRIMP","HSD.SD","VHSD.SD","Typical.Player.Load","Typical.Player.Load","Typical.Player.Load.min","Average.IMA","Session.Classification"))
+
+#can also add averaged bands(1-8) columns of diffrent metrics 
+```
+
+##Just to look into other metrics, averaged (below)
+```{r}
+#combine date (3rd column) + athlete (2nd column // anon_id) to make an average/max or sum depending 
 #group by (anon_id+Date), take the mean of all numerical columns 
 Catapult <- catapult %>%
   group_by(anon_id, Date) %>%
   summarise(across(where(is.numeric), mean, na.rm=FALSE))
 #Catapult dataset only has numerical values 
+
+#Catapult<- na.omit(Catapult)
 ```
 
 ```{r}
-#Catapult<- na.omit(Catapult)
 #IMAs are counted variable so sum these
 mean(catapult$High.Speed.Distance,na.rm=TRUE)
 mean(catapult$Maximum.Velocity,na.rm=TRUE)
@@ -86,21 +117,9 @@ mean(catapult$Average.Velocity,na.rm=TRUE)
 #velocity + acceleration + deceleration + player load + IMA most important to pay attention to 
 ```
 
-```{r}
-#refined catapult session- outdoor dataset to what I assume to be most important 
-Catapult <- subset(catapult,select=c("anon_id", "Sport", "Primary.Position" ,"Activity", "Venue.Name", "Position"))
-Catapult<- na.omit(Catapult)
-#sort out any non football values
-Catapult <- Catapult %>%
-filter(Sport=="FOOTBALL")
-#remove sport column
-Catapult <- Catapult[,-c(2)]
-```
-
 3. Incident Report
 ```{r}
 incident <- read.csv("~/T2P1-data-analysis-2025/data-sets/Incident Report FB.csv")
-#incidenT <- read.csv("data-sets/Incident Report FB.csv")
 ```
 ```{r}
 #sort out any non football values + etc
@@ -109,13 +128,110 @@ filter(Sport=="FOOTBALL") %>%
 filter(Incident.Type=="Injury") %>%
 filter(Result.of.Sport.Participation=="Yes")
 #selecting the variables of interest within the incident report
-Incident <- subset(incident,select=c("anon_id", "Position", "Date.of.Injury...Onset.of.symptoms", "Side", "Body.Part", "Tissue.Type", "Pathology.Type", "OSICS14.Code", "OSICS10.Code", "OSICS10.Diagnosis", "Final.Diagnosis", "Result.of.Sport.Participation", "Recurrence.of.Injury", "Injury.Prognosis", "General.Mechanism", "Specific.Mechanism", "FinalDiagnosisIncidentDate", "Total.Time.Injured", "Month", "Year"))
+filtered_incident <- subset(incident,select=c("anon_id", "Position", "Date.of.Injury...Onset.of.symptoms", "Side", "Body.Part", "Tissue.Type", "Pathology.Type", "OSICS14.Code", "OSICS10.Code", "OSICS10.Diagnosis", "Final.Diagnosis", "Result.of.Sport.Participation", "Recurrence.of.Injury", "Injury.Prognosis", "General.Mechanism", "Specific.Mechanism", "FinalDiagnosisIncidentDate", "Total.Time.Injured", "Month", "Year"))
+
+#cut back to last 6 months (can repeat to do last 3 months aswell or instead)
+filtered_incident$Date <- mdy(filtered_incident$Date)
+current_date <- Sys.Date()
+start_date <- current_date- months(6)
+filtered_incident <- filtered_incident %>%
+  filter(Date >= start_date)
 ```
 
+4. Performance Normative Data
+```{r}
+perfnorm <- read.csv("~/T2P1-data-analysis-2025/data-sets/Performance Normative Data FB.csv")
+```
+```{r}
+filtered_perfnorm <- subset(perfnorm,select=c("anon_id","Date","Position","Nordic.Average","Nordic.Imbalance..","Adduction.Abduction.Ratio","Eccentric.Peak.Power...Relative","Jump.Height","Modified.RSI"))
 
-## VALD Dataset
+#cut back to last 6 months (can repeat to do last 3 months aswell or instead)
+filtered_perfnorm$Date <- mdy(filtered_perfnorm$Date)
+current_date <- Sys.Date()
+start_date <- current_date- months(6)
+filtered_perfnorm <- filtered_perfnorm %>%
+  filter(Date >= start_date)
 
+PERFnorm <- filtered_perfnorm %>%
+  group_by(anon_id, Date) %>%
+  summarise(across(where(is.numeric), mean, na.rm=FALSE))
+#can compare to NFL + NBA aswell
+```
 
+5.Performance Risk Assessment
+##DATASET ONLY FROM ONE DAY OF LAST YEAR// THEREFORE PROBABLY NOT THAT RELEVANT TO US
+#other than for possible comparisons 
+```{r}
+perfrisk <- read.csv("~/T2P1-data-analysis-2025/data-sets/Performance Risk Assessment FB.csv")
+
+#filter football
+perfrisk <- perfrisk %>%
+  filter(Sport=="FOOTBALL")
+```
+
+```{r}
+#ALL variables are relevant
+
+filtered_perfrisk <- subset(perfrisk,select=c("anon_id", "Date","Position","Hamstring.Avg..Imbalance", "L..Hamstring.Max.Force","R..Hamstring.Max.Force","L..Eccentric.Mean.Force","R..Eccentric.Mean.Force","Eccentric.Mean.Force.Asym","CMJ.Landing.Asym.","CMJ.Jump.Height","Groin.Avg..Imbalance", "Relative.Peak.Power","CMJ.Peak.Force","IMTP.Peak.Force"))
+```
+
+6. Soft Tissue Risk Status 
+```{r}
+riskstatus <- read.csv("~/T2P1-data-analysis-2025/data-sets/Soft Tissue Risk Status Report FB.csv")
+```
+
+```{r}
+#refined risk status dataset
+#contains response variable, what we are comparing against// validating 
+riskstatus <- riskstatus[,-c(1,5)]
+
+#cut back to last 6 months (can repeat to do last 3 months aswell or instead)
+riskstatus$Date <- mdy(riskstatus$Date)
+current_date <- Sys.Date()
+start_date <- current_date- months(6)
+riskstatus <- riskstatus %>%
+  filter(Date >= start_date)  # 215 -> 100 obs.
+
+#binary could be useful when testing accuracy/importance of high risk status
+Highrisk_binary=ifelse(riskstatus$Status=="High",1,0)
+#cbind(Riskstatus,Highrisk_binary)
+
+riskstatus$Highrisk_binary = Highrisk_binary
+```
+
+7. Strength Testing Data
+```{r}
+#not expected to use this dataset alot + no real need to filter atm 
+strengthtest <- read.csv("~/T2P1-data-analysis-2025/data-sets/Strength Testing Data FB.csv")
+```
+
+```{r}
+#cut back to last 6 months (can repeat to do last 3 months aswell or instead)
+strengthtest$Date <- mdy(strengthtest$Date)
+current_date <- Sys.Date()
+start_date <- current_date- months(6)
+strengthtest <- strengthtest %>%
+  filter(Date >= start_date)  # 224 -> 26 obs.
+```
+
+8. VALD Performance Test 
+```{r}
+VALD <- read.csv("~/T2P1-data-analysis-2025/data-sets/VALD - Performance Test FB.csv")
+```
+```{r}
+#focus on NORDIC #s mainly (force,power, asymmetry, difference from normative to first) 
+
+filtered_VALD <- subset(VALD, select = c("anon_id","Date", "Session.Date", "Position", "Trend", "Maximum.Force","Average.Force","Impulse", "Percent.Difference.Norm", "Nordic.Left.MAX", "Nordic.Right.MAX", "Nordic.MEAN.Imbalance.with.side", "Positional.Norm","Hip.Abd.Trend","Hip.Add.Trend", "Nordic...Difference.from.First.Test", "Month", "Year"))
+
+#cut back to last 6 months (can repeat to do last 3 months aswell or instead)
+filtered_VALD$Date <- mdy(filtered_VALD$Date)
+current_date <- Sys.Date()
+start_date <- current_date- months(6)
+filtered_VALD <- filtered_VALD %>%
+  filter(Date >= start_date) 
+```
+
+## CARETERS
 ```{r}
 #selecting variables of interest
 Vald <- subset(VALD, select = c("anon_id", "Session.Date", "Position", "Trend", "Maximum.Force", "Percent.Difference.Norm", "Nordic.Left.MAX", "Nordic.Right.MAX", "Nordic.MEAN.Imbalance.with.side", "Positional.Norm", "Nordic...Difference.from.First.Test", "Month", "Year"))
@@ -133,10 +249,32 @@ vald <- Vald %>%
   ungroup()
 ```
 
+9. VALD Normative Report 
+```{r}
+#ALL variables relevant 
+```
 
-## Wellness Dataset
+10. Wellness Report 
+```{r}
+wellness <- read.csv("~/T2P1-data-analysis-2025/data-sets/Wellness Report FB.csv")
+```
 
+```{r}
+wellness <- wellness %>%
+  filter(Sport=="FOOTBALL")
 
+#mental score, physical score,sleep quality score, soreness scores, + overall wellness all relevant 
+filtered_wellness <- subset(wellness, select=c("anon_id","Date","Position","Mental.Score","Physical.Score", "Sleep.Quality.Score","Soreness.Score","Overall.Wellness.Score","Wellness.Compliance"))
+
+#cut back to last 6 months (can repeat to do last 3 months aswell or instead)
+filtered_wellness$Date <- mdy(filtered_wellness$Date)
+current_date <- Sys.Date()
+start_date <- current_date- months(6)
+filtered_wellness <- filtered_wellness %>%
+  filter(Date >= start_date) 
+```
+
+## Wellness Dataset//CARTER
 ```{r}
 #selecting only the variables of interest: important to not that this only contains data from may to december of 2024
 Wellness <- subset(wellness, select = c("anon_id", "Date", "Mental.Score", "Physical.Score", "Sleep.Quality.Score", "Soreness.Score", "Overall.Wellness.Score", "Month", "Year"))
@@ -152,9 +290,7 @@ Wellness2 <- Wellness %>%
             Overall.Wellness.Score = mean(Overall.Wellness.Score))
 ```
 
-
 ## Validating the Soft-Tissue Watchlist
-
 
 ```{r}
 #filtering just the high risk athletes from the watchlist
@@ -252,106 +388,23 @@ ggplot(tests_outcomes, aes(x = outcomes, fill = outcomes)) +
   theme_bw()
 ```
 
+```{r}
 #important date of injury, injury type, +OSICIS 10 (already standaridzed codification of injury type), time loss, recurring injury 
 #rest irrelevant// get rid of 
 Incident <- subset(incident,select=c("anon_id","Date","Position","Date.of.Injury...Onset.of.symptoms","Side","Body.Part","OSICS.Injury.Diagnosis","Coach.s.Diagnosis","OSICS10.Diagnosis","Recurrence.of.Injury","Injury.Prognosis","Total.Time.Injured"))
 ```
 
-4. Performance Normative Data
-```{r}
-perfnorm <- read.csv("~/T2P1-data-analysis-2025/data-sets/Performance Normative Data FB.csv")
-```
-```{r}
-Perfnorm <- subset(perfnorm,select=c("anon_id","Date","Position","Nordic.Average","Nordic.Imbalance..","Adduction.Abduction.Ratio","Eccentric.Peak.Power...Relative","Jump.Height","Modified.RSI"))
-
-PERFnorm <- perfnorm %>%
-  group_by(anon_id, Date) %>%
-  summarise(across(where(is.numeric), mean, na.rm=FALSE))
-
-#can compare to NFL + NBA aswell
-```
-
-5.Performance Risk Assessment
-```{r}
-perfrisk <- read.csv("~/T2P1-data-analysis-2025/data-sets/Performance Risk Assessment FB.csv")
-#ALL variables are relevant
-
-#filter football
-perfrisk <- perfrisk %>%
-  filter(Sport=="FOOTBALL")
-
-#get rid of 1(X), 10(Sport),12,13(INdexes),25
-perfrisk <- perfrisk[,-c(1,10,12,13,25)]
-#perfrisk <- perfrisk[,-c(53,54)]
-```
-
-6. Soft Tissue Risk Status 
-```{r}
-riskstatus <- read.csv("~/T2P1-data-analysis-2025/data-sets/Soft Tissue Risk Status Report FB.csv")
-```
-
-```{r}
-#refined risk status dataset
-#contains response variable, what we are comparing against// validating 
-Riskstatus <- riskstatus[,-c(1,5)]
-
-#binary could be useful when testing accuracy/importance of high risk status
-Highrisk_binary=ifelse(Riskstatus$Status=="High",1,0)
-#cbind(Riskstatus,Highrisk_binary)
-
-Riskstatus$Highrisk_binary = Highrisk_binary
-```
-
-7. Strength Testing Data
-```{r}
-#not expected to use this dataset alot
-
-#contains quad to hamstring strength ratio
-```
-
-8. VALD Performance Test 
-```{r}
-VALD <- read.csv("~/T2P1-data-analysis-2025/data-sets/VALD - Performance Test FB.csv")
-```
-
-```{r}
-#focus on NORDIC #s mainly
-#force,power, asymmetry, difference from normative to first 
-
-#1(X), 6-13(dates), 15-17 (notes-position)
-Vald<- VALD[,-c(1,6,7,8,9,10,11,12,13,15,16,17)]
-```
-
-9. VALD Normative Report 
-```{r}
-#ALL variables relevant 
-```
-
-10. Wellness Report 
-```{r}
-wellness <- read.csv("~/T2P1-data-analysis-2025/data-sets/Wellness Report FB.csv")
-```
-
-```{r}
-wellness <- wellness %>%
-  filter(Sport=="FOOTBALL")
-
-#mental score, physical score,sleep quality score, soreness scores, + overall wellness all relevant 
-Wellness <- subset(wellness, select=c("anon_id","Date","Position","Mental.Score","Physical.Score", "Sleep.Quality.Score","Soreness.Score","Overall.Wellness.Score","Wellness.Compliance"))
-```
 
 ```{r}
 #MERGE Incident and Riskstatus datasets
-df <- merge(Riskstatus,Incident,by="anon_id")
+df <- merge(riskstatus,filtered_incident,by="anon_id")
 ```
 ```{r}
-df <- merge(df,Perfnorm,by="anon_id")
+df <- merge(df,filtered_perfnorm,by="anon_id")
 ```
-
 ```{r}
-df <- merge(df,Wellness,by="anon_id")
+df <- merge(df,filtered_wellness,by="anon_id")
 ```
-
 
 ## Exploratory Analysis: descriptive stats + plots
 ```{r}
@@ -397,12 +450,8 @@ ggplot(df, aes(x=Recurrence.of.Injury))+
 #risk category validity checks 
 ```
 
-
 ```{r}
 #correlation checks 
-
 ```
 
-
 ```{r}
-
