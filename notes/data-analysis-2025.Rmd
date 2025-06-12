@@ -136,9 +136,9 @@ filtered_incident <- subset(incident,select=c("anon_id", "Position", "Date.of.In
 perfnorm <- read.csv("~/T2P1-data-analysis-2025/data-sets/Performance Normative Data FB.csv")
 ```
 ```{r}
-Perfnorm <- subset(perfnorm,select=c("anon_id","Date","Position","Nordic.Average","Nordic.Imbalance..","Adduction.Abduction.Ratio","Eccentric.Peak.Power...Relative","Jump.Height","Modified.RSI"))
+filtered_perfnorm <- subset(perfnorm,select=c("anon_id","Date","Position","Nordic.Average","Nordic.Imbalance..","Adduction.Abduction.Ratio","Eccentric.Peak.Power...Relative","Jump.Height","Modified.RSI"))
 
-PERFnorm <- perfnorm %>%
+PERFnorm <- filtered_perfnorm %>%
   group_by(anon_id, Date) %>%
   summarise(across(where(is.numeric), mean, na.rm=FALSE))
 #can compare to NFL + NBA aswell
@@ -147,15 +147,21 @@ PERFnorm <- perfnorm %>%
 5.Performance Risk Assessment
 ```{r}
 perfrisk <- read.csv("~/T2P1-data-analysis-2025/data-sets/Performance Risk Assessment FB.csv")
-#ALL variables are relevant
 
 #filter football
 perfrisk <- perfrisk %>%
   filter(Sport=="FOOTBALL")
+```
+
+```{r}
+#ALL variables are relevant
 
 #get rid of 1(X), 10(Sport),12,13(INdexes),25
-perfrisk <- perfrisk[,-c(1,10,12,13,25)]
+#filtered_perfrisk <- perfrisk[,-c(3,4,5,,10,12,13,25)]
 #perfrisk <- perfrisk[,-c(53,54)]
+
+filtered_perfrisk <- subset(perfrisk,select=c("anon_id", "Date","Position","Hamstring.Avg..Imbalance", "L..Hamstring.Max.Force","R..Hamstring.Max.Force","L..Eccentric.Mean.Force","R..Eccentric.Mean.Force","Eccentric.Mean.Force.Asym","CMJ.Landing.Asym.","CMJ.Jump.Height","Groin.Avg..Imbalance", "Relative.Peak.Power","CMJ.Peak.Force","IMTP.Peak.Force"))
+
 ```
 
 6. Soft Tissue Risk Status 
@@ -166,20 +172,18 @@ riskstatus <- read.csv("~/T2P1-data-analysis-2025/data-sets/Soft Tissue Risk Sta
 ```{r}
 #refined risk status dataset
 #contains response variable, what we are comparing against// validating 
-Riskstatus <- riskstatus[,-c(1,5)]
+riskstatus <- riskstatus[,-c(1,5)]
 
 #binary could be useful when testing accuracy/importance of high risk status
-Highrisk_binary=ifelse(Riskstatus$Status=="High",1,0)
+Highrisk_binary=ifelse(riskstatus$Status=="High",1,0)
 #cbind(Riskstatus,Highrisk_binary)
 
-Riskstatus$Highrisk_binary = Highrisk_binary
+riskstatus$Highrisk_binary = Highrisk_binary
 ```
 
 7. Strength Testing Data
 ```{r}
-#not expected to use this dataset alot
-
-#contains quad to hamstring strength ratio
+#not expected to use this dataset alot + no real need to filter atm 
 ```
 
 8. VALD Performance Test 
@@ -187,11 +191,9 @@ Riskstatus$Highrisk_binary = Highrisk_binary
 VALD <- read.csv("~/T2P1-data-analysis-2025/data-sets/VALD - Performance Test FB.csv")
 ```
 ```{r}
-#focus on NORDIC #s mainly
-#force,power, asymmetry, difference from normative to first 
+#focus on NORDIC #s mainly (force,power, asymmetry, difference from normative to first) 
 
-#1(X), 6-13(dates), 15-17 (notes-position)
-VALD<- VALD[,-c(1,6,7,8,9,10,11,12,13,15,16,17)]
+filtered_VALD <- subset(VALD, select = c("anon_id","Date", "Session.Date", "Position", "Trend", "Maximum.Force","Average.Force","Impulse", "Percent.Difference.Norm", "Nordic.Left.MAX", "Nordic.Right.MAX", "Nordic.MEAN.Imbalance.with.side", "Positional.Norm","Hip.Abd.Trend","Hip.Add.Trend", "Nordic...Difference.from.First.Test", "Month", "Year"))
 ```
 
 ## CARETERS
@@ -212,7 +214,6 @@ vald <- Vald %>%
   ungroup()
 ```
 
-
 9. VALD Normative Report 
 ```{r}
 #ALL variables relevant 
@@ -231,7 +232,7 @@ wellness <- wellness %>%
 filtered_wellness <- subset(wellness, select=c("anon_id","Date","Position","Mental.Score","Physical.Score", "Sleep.Quality.Score","Soreness.Score","Overall.Wellness.Score","Wellness.Compliance"))
 ```
 
-## Wellness Dataset
+## Wellness Dataset//CARTER
 ```{r}
 #selecting only the variables of interest: important to not that this only contains data from may to december of 2024
 Wellness <- subset(wellness, select = c("anon_id", "Date", "Mental.Score", "Physical.Score", "Sleep.Quality.Score", "Soreness.Score", "Overall.Wellness.Score", "Month", "Year"))
@@ -354,13 +355,13 @@ Incident <- subset(incident,select=c("anon_id","Date","Position","Date.of.Injury
 
 ```{r}
 #MERGE Incident and Riskstatus datasets
-df <- merge(Riskstatus,Incident,by="anon_id")
+df <- merge(riskstatus,filtered_incident,by="anon_id")
 ```
 ```{r}
-df <- merge(df,Perfnorm,by="anon_id")
+df <- merge(df,filtered_perfnorm,by="anon_id")
 ```
 ```{r}
-df <- merge(df,Wellness,by="anon_id")
+df <- merge(df,filtered_wellness,by="anon_id")
 ```
 
 ## Exploratory Analysis: descriptive stats + plots
@@ -407,12 +408,8 @@ ggplot(df, aes(x=Recurrence.of.Injury))+
 #risk category validity checks 
 ```
 
-
 ```{r}
 #correlation checks 
-
 ```
 
-
 ```{r}
-
