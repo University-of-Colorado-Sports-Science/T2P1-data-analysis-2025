@@ -1,18 +1,10 @@
 ---
-title: "Data Analysis Notebook"
+title: "Importing Datasets"
 output: html_notebook
 ---
 
-```{r}
 
-#Authors: [Sydney Stanton, Carter Zborowski]
-
-#Author Date: 06/09/2025
-#Purpose: The purpose of this notebook is to house all data set transformation, cleansing, visualization, statistical analysis, and note-taking for the 2025 CU Athletic Department Sports Science Internship Program
-
-#LAST UPDATED: 06/09/2025
-
-#Including helpful libraries
+```{r, message = FALSE, error = FALSE}
 library(tidyverse)
 library(readxl)
 library(aod)
@@ -22,99 +14,68 @@ library(dplyr)
 library(ggplot2)
 ```
 
+
 ```{r}
 #load all of the useful datasets
-ACWR <- read.csv("~/T2P1-data-analysis-2025/data-sets/ACWR- Catapult FB.csv")
-catapult <- read.csv("~/T2P1-data-analysis-2025/data-sets/Catapult Session - Outdoor FB.csv")
-incident <- read.csv("~/T2P1-data-analysis-2025/data-sets/Incident Report FB.csv")
-perfnorm <- read.csv("~/T2P1-data-analysis-2025/data-sets/Performance Normative Data FB.csv")
-perfrisk <- read.csv("~/T2P1-data-analysis-2025/data-sets/Performance Risk Assessment FB.csv")
-riskstatus <- read.csv("~/T2P1-data-analysis-2025/data-sets/Soft Tissue Risk Status Report FB.csv")
-strengthtest <- read.csv("~/T2P1-data-analysis-2025/data-sets/Strength Testing Data FB.csv")
-VALD <- read.csv("~/T2P1-data-analysis-2025/data-sets/VALD - Performance Test FB.csv")
-wellness <- read.csv("~/T2P1-data-analysis-2025/data-sets/Wellness Report FB.csv")
+ACWR <- read_csv('data-sets/data-sets-uncompressed/ACWR- Catapult FB.csv')
+catapult <- read_csv('data-sets/data-sets-uncompressed/Catapult Session - Outdoor FB.csv')
+incident <- read_csv('data-sets/data-sets-uncompressed/Incident Report FB.csv')
+perfnorm <- read_csv('data-sets/data-sets-uncompressed/Performance Normative Data FB.csv')
+perfrisk <- read_csv('data-sets/data-sets-uncompressed/Performance Risk Assessment FB.csv')
+riskstatus <- read_csv('data-sets/data-sets-uncompressed/Soft Tissue Risk Status Report FB.csv')
+strengthtest <- read_csv('data-sets/data-sets-uncompressed/Strength Testing Data FB.csv')
+VALD <- read_csv('data-sets/data-sets-uncompressed/VALD - Performance Test FB.csv')
+wellness <- read_csv('data-sets/data-sets-uncompressed/Wellness Report FB.csv')
 ```
 
-## Data Cleaning 
 
-1.ACWR- Catapult 
 ```{r}
-#ACWR-Catapult (all variables relevant)
 #refined risk status dataset
 #contains response variable 
 Riskstatus <- riskstatus[,-5]
 ```
 
+
+# ACWR Dataset
+
+
 ```{r}
-#refined ACWR dataset for what I assume to be most important predictors 
-Acwr <- subset(ACWR,select=c("anon_id","Position","Total.Player.Load","Acute.Total.Acceleration.Load.EWMA","Acceleration.Load.ACWR","Player.Load.ACWR","Total.Distance.ACWR"))
-Acwr <- na.omit(Acwr)
-```
-
-2. Catapult Session- Outdoor 
-```{r}
-#remove periods + venues 
-catapult <- catapult[,-c(16,19,20,21)]
-
-#sort out any non football values
-catapult <- catapult %>%
-filter(Sport=="FOOTBALL")
-
-#remove sport column b/c not needed anymore
-catapult <- catapult[,-c(6)]
-
-#combine date (3rd column) + athlete (2nd column // anon_id) to make an average, maximum, or sum depending on variable 
-#group by (anon_id+Date), take the mean of all numerical columns 
-Catapult <- catapult %>%
-  group_by(anon_id, Date) %>%
-  summarise(across(where(is.numeric), mean, na.rm=FALSE))
-#Catapult dataset only has numerical values 
+#refined ACWR dataset 
+Acwr <- subset(ACWR,select=c("anon_id", "Date", "Position", "Total.Player.Load", "Acceleration.Load.EWMA.ACWR", "Acceleration.Load.ACWR", "Player.Load.ACWR", "Total.Distance.ACWR"))
+Acwr <- Acwr %>%
+  na.omit() %>%
+  mutate(Date = as.Date(Date, format = '%m/%d/%Y'))
 ```
 
 ```{r}
-#Catapult<- na.omit(Catapult)
-#IMAs are counted variable so sum these
-mean(catapult$High.Speed.Distance,na.rm=TRUE)
-mean(catapult$Maximum.Velocity,na.rm=TRUE)
-mean(catapult$Total.Player.Load,na.rm=TRUE)
-mean(catapult$Player.Load.min,na.rm=TRUE)
+ggplot(Acwr, aes(Acceleration.Load.EWMA.ACWR)) + 
+  geom_histogram(bins = 30, fill = 'royalblue', color = 'black') + 
+  labs(title = 'Distribution of Total Player Load',
+       x = 'Total Player Load',
+       y = 'Number of Players') +
+  theme_bw()
 
-#Maximum + average of the maximum & average velocity (given to us)
-max(catapult$Maximum.Velocity,na.rm=TRUE)
-mean(catapult$Average.Velocity,na.rm=TRUE)
+Acwr_HSI <- Acwr %>%
+  filter(anon_id == 'ID_95', '2024-07-01' < Date & Date < '2024-12-01')
 
-#velocity + acceleration + deceleration + player load + IMA most important to pay attention to 
+ggplot(Acwr_HSI, aes(Acceleration.Load.EWMA.ACWR)) + 
+  geom_histogram(bins = 30, fill = 'royalblue', color = 'black') + 
+  labs(title = 'Distribution of Total Player Load in Players with HSI',
+       x = 'Total Player Load',
+       y = 'Number of Players') +
+  theme_bw()
+```
+
+
+```{r}
+#refined catapult session outdoor dataset
+Catapult <- subset(catapult,select=c("anon_id", "Position", "Date", "High.Speed.Distance", "Very.High.Speed.Distance", "Maximum.Velocity", "Average.Velocity", "IMA.Accel.Low", "IMA.Decel.Low", "IMA.Accel.Medium", "IMA.Decel.Medium", "IMA.Accel.High", "IMA.Decel.High", "IMA.Accel.Total", "IMA.Decel.Total", "Explosive.Efforts"))
 ```
 
 ```{r}
-#refined catapult session- outdoor dataset to what I assume to be most important 
-Catapult <- subset(catapult,select=c("anon_id", "Sport", "Primary.Position" ,"Activity", "Venue.Name", "Position"))
-Catapult<- na.omit(Catapult)
-#sort out any non football values
-Catapult <- Catapult %>%
-filter(Sport=="FOOTBALL")
-#remove sport column
-Catapult <- Catapult[,-c(2)]
-```
-
-3. Incident Report
-```{r}
-incident <- read.csv("~/T2P1-data-analysis-2025/data-sets/Incident Report FB.csv")
-#incidenT <- read.csv("data-sets/Incident Report FB.csv")
-```
-```{r}
-#sort out any non football values + etc
-incident <- incident %>%
-filter(Sport=="FOOTBALL") %>%
-filter(Incident.Type=="Injury") %>%
-filter(Result.of.Sport.Participation=="Yes")
 #selecting the variables of interest within the incident report
 Incident <- subset(incident,select=c("anon_id", "Position", "Date.of.Injury...Onset.of.symptoms", "Side", "Body.Part", "Tissue.Type", "Pathology.Type", "OSICS14.Code", "OSICS10.Code", "OSICS10.Diagnosis", "Final.Diagnosis", "Result.of.Sport.Participation", "Recurrence.of.Injury", "Injury.Prognosis", "General.Mechanism", "Specific.Mechanism", "FinalDiagnosisIncidentDate", "Total.Time.Injured", "Month", "Year"))
 ```
-
-
-## VALD Dataset
-
 
 ```{r}
 #selecting variables of interest
@@ -133,9 +94,14 @@ vald <- Vald %>%
   ungroup()
 ```
 
-
-## Wellness Dataset
-
+```{r}
+ggplot(vald, aes(x = Maximum.Force)) + 
+  geom_histogram(bins = 30, fill = 'royalblue', color = 'black') + 
+  labs(title = 'Distribution of Nordic Maximum Force',
+       x = 'Maximum Force',
+       y = 'Number of Athletes') +
+  theme_bw()
+```
 
 ```{r}
 #selecting only the variables of interest: important to not that this only contains data from may to december of 2024
@@ -150,6 +116,41 @@ Wellness2 <- Wellness %>%
             Sleep.Quality.Score = mean(Sleep.Quality.Score),
             Soreness.Score = mean(Soreness.Score),
             Overall.Wellness.Score = mean(Overall.Wellness.Score))
+```
+
+
+# Generating Incident Report of Just HSI
+
+
+```{r, warning = FALSE}
+#filter for just hamstring related injuries and get rid of duplicate observations
+incident_HSI <- Incident %>%
+  filter(OSICS14.Code %in% hamstring_OSICS14) %>%
+  group_by(anon_id, Date.of.Injury...Onset.of.symptoms) %>%
+  mutate(Total.Time.Injured = sum(Total.Time.Injured, na.rm = TRUE)) %>%
+  ungroup() %>%
+  group_by(across(everything())) %>%
+  summarise(.groups = 'drop')
+
+incident_HSI <- incident_HSI[-14,]
+
+#creating a list of players who experienced HSI
+players_HSI <- unique(incident_HSI$anon_id)
+
+#consolidate same players into one observation
+incident_HSI2 <- incident_HSI %>%
+  mutate(Date = as.Date(Date.of.Injury...Onset.of.symptoms, format = '%m/%d/%Y')) %>%
+  arrange(Date) %>%
+  group_by(anon_id) %>%
+  summarize(Outcome = paste0(Date, collapse = " and ")) %>%
+  separate(Outcome, c('Injury.1', 'Injury.2', 'Injury.3', 'Injury.4'), sep = ' and ')
+```
+
+```{r}
+incident_HSI3 <- incident_HSI %>%
+  select(anon_id, Month, Year, Date.of.Injury...Onset.of.symptoms, Final.Diagnosis, Total.Time.Injured)
+
+incident_vald <- merge(incident_HSI3, vald, by = c('anon_id', 'Month', 'Year'), all = TRUE)
 ```
 
 
@@ -252,157 +253,13 @@ ggplot(tests_outcomes, aes(x = outcomes, fill = outcomes)) +
   theme_bw()
 ```
 
-#important date of injury, injury type, +OSICIS 10 (already standaridzed codification of injury type), time loss, recurring injury 
-#rest irrelevant// get rid of 
-Incident <- subset(incident,select=c("anon_id","Date","Position","Date.of.Injury...Onset.of.symptoms","Side","Body.Part","OSICS.Injury.Diagnosis","Coach.s.Diagnosis","OSICS10.Diagnosis","Recurrence.of.Injury","Injury.Prognosis","Total.Time.Injured"))
-```
-
-4. Performance Normative Data
-```{r}
-perfnorm <- read.csv("~/T2P1-data-analysis-2025/data-sets/Performance Normative Data FB.csv")
-```
-```{r}
-Perfnorm <- subset(perfnorm,select=c("anon_id","Date","Position","Nordic.Average","Nordic.Imbalance..","Adduction.Abduction.Ratio","Eccentric.Peak.Power...Relative","Jump.Height","Modified.RSI"))
-
-PERFnorm <- perfnorm %>%
-  group_by(anon_id, Date) %>%
-  summarise(across(where(is.numeric), mean, na.rm=FALSE))
-
-#can compare to NFL + NBA aswell
-```
-
-5.Performance Risk Assessment
-```{r}
-perfrisk <- read.csv("~/T2P1-data-analysis-2025/data-sets/Performance Risk Assessment FB.csv")
-#ALL variables are relevant
-
-#filter football
-perfrisk <- perfrisk %>%
-  filter(Sport=="FOOTBALL")
-
-#get rid of 1(X), 10(Sport),12,13(INdexes),25
-perfrisk <- perfrisk[,-c(1,10,12,13,25)]
-#perfrisk <- perfrisk[,-c(53,54)]
-```
-
-6. Soft Tissue Risk Status 
-```{r}
-riskstatus <- read.csv("~/T2P1-data-analysis-2025/data-sets/Soft Tissue Risk Status Report FB.csv")
-```
-
-```{r}
-#refined risk status dataset
-#contains response variable, what we are comparing against// validating 
-Riskstatus <- riskstatus[,-c(1,5)]
-
-#binary could be useful when testing accuracy/importance of high risk status
-Highrisk_binary=ifelse(Riskstatus$Status=="High",1,0)
-#cbind(Riskstatus,Highrisk_binary)
-
-Riskstatus$Highrisk_binary = Highrisk_binary
-```
-
-7. Strength Testing Data
-```{r}
-#not expected to use this dataset alot
-
-#contains quad to hamstring strength ratio
-```
-
-8. VALD Performance Test 
-```{r}
-VALD <- read.csv("~/T2P1-data-analysis-2025/data-sets/VALD - Performance Test FB.csv")
-```
-
-```{r}
-#focus on NORDIC #s mainly
-#force,power, asymmetry, difference from normative to first 
-
-#1(X), 6-13(dates), 15-17 (notes-position)
-Vald<- VALD[,-c(1,6,7,8,9,10,11,12,13,15,16,17)]
-```
-
-9. VALD Normative Report 
-```{r}
-#ALL variables relevant 
-```
-
-10. Wellness Report 
-```{r}
-wellness <- read.csv("~/T2P1-data-analysis-2025/data-sets/Wellness Report FB.csv")
-```
-
-```{r}
-wellness <- wellness %>%
-  filter(Sport=="FOOTBALL")
-
-#mental score, physical score,sleep quality score, soreness scores, + overall wellness all relevant 
-Wellness <- subset(wellness, select=c("anon_id","Date","Position","Mental.Score","Physical.Score", "Sleep.Quality.Score","Soreness.Score","Overall.Wellness.Score","Wellness.Compliance"))
-```
-
-```{r}
-#MERGE Incident and Riskstatus datasets
-df <- merge(Riskstatus,Incident,by="anon_id")
-```
-```{r}
-df <- merge(df,Perfnorm,by="anon_id")
-```
-
-```{r}
-df <- merge(df,Wellness,by="anon_id")
-```
 
 
-## Exploratory Analysis: descriptive stats + plots
-```{r}
-#density plot of risk categories 
-ggplot(df, aes(x=Status))+
-  geom_bar(fill="lightblue")+
-  labs(title="Risk Status Spread",x="Risk Status",y="Frequency")
-
-ggplot(df, aes(x=Position))+
-  geom_bar(fill="lightblue")+
-  labs(title="Positional Spread",x="Players Positions",y="Frequency")
-
-#position by status
-ggplot(df,aes(x=Position,y=Status))+  #scatterplot
-  geom_point()+
-  geom_jitter()+ 
-  labs(title="Position Influence on Hamstring Risk Status",y="Risk Status")
-
-ggplot(df,aes(x=Position,fill=Status))+   #stacked bar chart
-  geom_bar(inherit.aes = TRUE)+
-  scale_fill_brewer()
-```
-```{r}
-#density plot of Body. part density 
-ggplot(df, aes(x=Body.Part))+
-  geom_bar(fill="lightblue")+
-  labs(title="Part of Body INjured Spread",x="Injured Body Part",y="Frequency")
-
-ggplot(df, aes(x=Recurrence.of.Injury))+
-  geom_bar(fill="lightblue")+
-  labs(title="Recurrence of Injury Spread",x="Injury Recurrence",y="Frequency")
 
 
-#injury rate by risk category (Riskstatus)
-#injury rate by previous injury history
-
-#distributions of strength/imbalance by risk category 
-#boxplot(y~`Status,data=df)
-```
 
 
-```{r}
-#risk category validity checks 
-```
 
 
-```{r}
-#correlation checks 
 
-```
-
-
-```{r}
 
