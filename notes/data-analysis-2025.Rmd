@@ -144,6 +144,9 @@ current_date1 <- Sys.Date()
 start_date1 <- current_date1- months(24)
 filtered_incident <- filtered_incident %>%
   filter(Date >= start_date1)
+
+#HAMSTRING INJURY BINARY TO USE AS RESPONSE VARIABLE 
+filtered_incident$HSI <- ifelse(filtered_incident$Body.Part == "Thigh",1,0)
 ```
 ```{r}
 min(filtered_incident$Date,na.rm=TRUE)
@@ -207,7 +210,7 @@ riskstatus <- riskstatus[,-c(1,5)]
 #cut back to last 6 months (can repeat to do last 3 months aswell or instead)
 riskstatus$Date <- mdy(riskstatus$Date)
 current_date <- Sys.Date()
-start_date <- current_date- months(6)
+start_date <- current_date- months(24)
 riskstatus <- riskstatus %>%
   filter(Date >= start_date)  # 215 -> 100 obs.
 
@@ -216,6 +219,9 @@ Highrisk_binary=ifelse(riskstatus$Status=="High",1,0)
 #cbind(Riskstatus,Highrisk_binary)
 
 riskstatus$Highrisk_binary = Highrisk_binary
+
+min(riskstatus$Date,na.rm=TRUE)
+max(riskstatus$Date,na.rm=TRUE)
 ```
 
 7. Strength Testing Data
@@ -228,9 +234,12 @@ strengthtest <- read.csv("~/T2P1-data-analysis-2025/data-sets/Strength Testing D
 #cut back to last 6 months (can repeat to do last 3 months aswell or instead)
 strengthtest$Date <- mdy(strengthtest$Date)
 current_date <- Sys.Date()
-start_date <- current_date- months(6)
+start_date <- current_date- months(24)
 strengthtest <- strengthtest %>%
   filter(Date >= start_date)  # 224 -> 26 obs.
+
+min(strengthtest$Date,na.rm=TRUE)
+max(strengthtest$Date,na.rm=TRUE)
 ```
 
 8. VALD Performance Test 
@@ -245,9 +254,12 @@ filtered_VALD <- subset(VALD, select = c("anon_id","Date", "Session.Date", "Posi
 #cut back to last 6 months (can repeat to do last 3 months aswell or instead)
 filtered_VALD$Date <- mdy(filtered_VALD$Date)
 current_date <- Sys.Date()
-start_date <- current_date- months(6)
+start_date <- current_date- months(24)
 filtered_VALD <- filtered_VALD %>%
-  filter(Date >= start_date) 
+  filter(Date >= start_date)
+
+min(filtered_VALD$Date,na.rm=TRUE)
+max(filtered_VALD$Date,na.rm=TRUE)
 ```
 
 ## CARETERS
@@ -288,9 +300,12 @@ filtered_wellness <- subset(wellness, select=c("anon_id","Date","Position","Ment
 #cut back to last 6 months (can repeat to do last 3 months aswell or instead)
 filtered_wellness$Date <- mdy(filtered_wellness$Date)
 current_date <- Sys.Date()
-start_date <- current_date- months(6)
+start_date <- current_date- months(24)
 filtered_wellness <- filtered_wellness %>%
   filter(Date >= start_date) 
+
+min(filtered_wellness$Date,na.rm=TRUE)
+max(filtered_wellness$Date,na.rm=TRUE)
 ```
 
 ## Wellness Dataset//CARTER
@@ -325,6 +340,8 @@ high_risk <- unique(Riskstatus_high$anon_id)
 ```
 
 ```{r}
+Incident <- read.csv("~/T2P1-data-analysis-2025/data-sets/Incident Report FB.csv")
+
 #creating a list of the lower body areas in Body.Part and for OSICS codes for HSI
 lower_body <- c("Thigh", "Ankle", "Lower Leg", "Knee", "Foot", "Groin/hip")
 hamstring_OSICS14 <- c('TM1', 'TMB', 'TMS', 'TR1')
