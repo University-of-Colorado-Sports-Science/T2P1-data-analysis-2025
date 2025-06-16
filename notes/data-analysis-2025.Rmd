@@ -40,10 +40,7 @@ wellness <- read.csv("~/T2P1-data-analysis-2025/data-sets/Wellness Report FB.csv
 
 1.ACWR- Catapult 
 ```{r}
-#ACWR-Catapult (all variables relevant)
-#refined risk status dataset
-#contains response variable 
-Riskstatus <- riskstatus[,-5]
+ACWR <- read.csv("~/T2P1-data-analysis-2025/data-sets/ACWR-Catapult FB.csv")
 ```
 
 ```{r}
@@ -54,11 +51,11 @@ ACWR <- ACWR %>%
   filter(Sport=="FOOTBALL")
 Acwr <- subset(ACWR,select=c("anon_id","Date","Position","Total.Player.Load","Acute.Total.Acceleration.Load.EWMA","Acceleration.Load.ACWR","Player.Load.ACWR","Total.Distance.ACWR"))
 
-#cut back to last 6 months (can repeat to do last 3 months aswell or instead)
+#cut back to last 24 months (last 2 years)
 Acwr$Date <- mdy(Acwr$Date)
 
 current_date <- Sys.Date()
-start_date <- current_date- months(6)
+start_date <- current_date- months(24)
 
 filtered_Acwr <- Acwr %>%
   filter(Date >= start_date)
@@ -66,8 +63,16 @@ filtered_Acwr <- Acwr %>%
 #Filtered_Acwr <- na.omit(Filtered_Acwr)
 #optional cuts down 14k obs. to 2k obs.
 ```
+```{r}
+min(filtered_Acwr$Date,na.rm=TRUE)
+max(filtered_Acwr$Date,na.rm=TRUE)
+```
 
 2. Catapult Session- Outdoor 
+```{r}
+catapult <- read.csv("~/T2P1-data-analysis-2025/data-sets/Catapult Session - Outdoor FB.csv")
+```
+
 ```{r}
 #remove periods + venues 
 catapult <- catapult[,-c(16,19,20,21)]
@@ -80,15 +85,18 @@ catapult <- catapult[,-c(6)]  #remove sport column b/c not needed anymore
 #cut back to last 6 months (can repeat to do last 3 months aswell or instead)
 catapult$Date <- mdy(catapult$Date)
 current_date <- Sys.Date()
-start_date <- current_date- months(6)
+start_date <- current_date- months(24)
 catapult <- catapult %>%
   filter(Date >= start_date)
 ```
-
 ```{r}
 filtered_catapult <- subset(catapult,select=c("anon_id","Date","Primary.Position","Position","Total.Distance","Maximum.Velocity","Average.Velocity","TRIMP", "Velocity.Exertion", "Total.Player.Load", "Player.Load.min","Total.Acceleration.Load","Acceleration.Density.Index","Explosive.Efforts","Max.Acceleration","Max.Deceleration","Session.Mean.TRIMP","HSD.SD","VHSD.SD","Typical.Player.Load","Typical.Player.Load","Typical.Player.Load.min","Average.IMA","Session.Classification"))
 
 #can also add averaged bands(1-8) columns of diffrent metrics 
+```
+```{r}
+min(filtered_catapult$Date,na.rm=TRUE)
+max(filtered_catapult$Date,na.rm=TRUE)
 ```
 
 ##Just to look into other metrics, averaged (below)
@@ -128,14 +136,18 @@ filter(Sport=="FOOTBALL") %>%
 filter(Incident.Type=="Injury") %>%
 filter(Result.of.Sport.Participation=="Yes")
 #selecting the variables of interest within the incident report
-filtered_incident <- subset(incident,select=c("anon_id", "Position", "Date.of.Injury...Onset.of.symptoms", "Side", "Body.Part", "Tissue.Type", "Pathology.Type", "OSICS14.Code", "OSICS10.Code", "OSICS10.Diagnosis", "Final.Diagnosis", "Result.of.Sport.Participation", "Recurrence.of.Injury", "Injury.Prognosis", "General.Mechanism", "Specific.Mechanism", "FinalDiagnosisIncidentDate", "Total.Time.Injured", "Month", "Year"))
+filtered_incident <- subset(incident,select=c("anon_id", "Position", "Date.of.Injury...Onset.of.symptoms", "Side", "Body.Part", "Tissue.Type", "Pathology.Type", "OSICS14.Code", "OSICS10.Code", "OSICS10.Diagnosis", "Final.Diagnosis", "Result.of.Sport.Participation", "Recurrence.of.Injury", "Injury.Prognosis", "General.Mechanism", "Specific.Mechanism", "FinalDiagnosisIncidentDate", "Total.Time.Injured", "Month", "Year","Incident.Type"))
 
 #cut back to last 6 months (can repeat to do last 3 months aswell or instead)
 filtered_incident$Date <- mdy(filtered_incident$Date)
-current_date <- Sys.Date()
-start_date <- current_date- months(6)
+current_date1 <- Sys.Date()
+start_date1 <- current_date1- months(24)
 filtered_incident <- filtered_incident %>%
-  filter(Date >= start_date)
+  filter(Date >= start_date1)
+```
+```{r}
+min(filtered_incident$Date,na.rm=TRUE)
+max(filtered_incident$Date,na.rm=TRUE)
 ```
 
 4. Performance Normative Data
@@ -148,7 +160,7 @@ filtered_perfnorm <- subset(perfnorm,select=c("anon_id","Date","Position","Nordi
 #cut back to last 6 months (can repeat to do last 3 months aswell or instead)
 filtered_perfnorm$Date <- mdy(filtered_perfnorm$Date)
 current_date <- Sys.Date()
-start_date <- current_date- months(6)
+start_date <- current_date- months(24)
 filtered_perfnorm <- filtered_perfnorm %>%
   filter(Date >= start_date)
 
@@ -156,6 +168,9 @@ PERFnorm <- filtered_perfnorm %>%
   group_by(anon_id, Date) %>%
   summarise(across(where(is.numeric), mean, na.rm=FALSE))
 #can compare to NFL + NBA aswell
+
+min(filtered_perfnorm$Date,na.rm=TRUE)
+max(filtered_perfnorm$Date,na.rm=TRUE)
 ```
 
 5.Performance Risk Assessment
@@ -171,8 +186,12 @@ perfrisk <- perfrisk %>%
 
 ```{r}
 #ALL variables are relevant
-
 filtered_perfrisk <- subset(perfrisk,select=c("anon_id", "Date","Position","Hamstring.Avg..Imbalance", "L..Hamstring.Max.Force","R..Hamstring.Max.Force","L..Eccentric.Mean.Force","R..Eccentric.Mean.Force","Eccentric.Mean.Force.Asym","CMJ.Landing.Asym.","CMJ.Jump.Height","Groin.Avg..Imbalance", "Relative.Peak.Power","CMJ.Peak.Force","IMTP.Peak.Force"))
+```
+
+```{r}
+min(filtered_perfrisk$Date,na.rm=TRUE)
+max(filtered_perfrisk$Date,na.rm=TRUE)
 ```
 
 6. Soft Tissue Risk Status 
