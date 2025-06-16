@@ -1,18 +1,10 @@
 ---
-title: "Data Analysis Notebook"
-output: html_notebook
+title: "sydney-notebook"
+output: html_document
+date: "2025-06-16"
 ---
 
 ```{r}
-
-#Authors: [Sydney Stanton, Carter Zborowski]
-
-#Author Date: 06/09/2025
-#Purpose: The purpose of this notebook is to house all data set transformation, cleansing, visualization, statistical analysis, and note-taking for the 2025 CU Athletic Department Sports Science Internship Program
-
-#LAST UPDATED: 06/12/2025
-
-#Including helpful libraries
 library(tidyverse)
 library(readxl)
 library(aod)
@@ -44,26 +36,24 @@ ACWR <- read.csv("~/T2P1-data-analysis-2025/data-sets/ACWR-Catapult FB.csv")
 ```
 
 ```{r}
+library(dplyr)
+library(lubridate)
 #refined ACWR dataset 
 ACWR <- ACWR %>%
   filter(Sport=="FOOTBALL")
-Acwr <- subset(ACWR,select=c("anon_id","Date","Position","Total.Player.Load","Acute.Total.Acceleration.Load.EWMA","Acceleration.Load.ACWR","Player.Load.ACWR","Total.Distance.ACWR","Month","Year"))
+Acwr <- subset(ACWR,select=c("anon_id","Date","Position","Total.Player.Load","Acute.Total.Acceleration.Load.EWMA","Acceleration.Load.ACWR","Player.Load.ACWR","Total.Distance.ACWR"))
 
-#cut back to last 12 months (last year)
+#cut back to last 24 months (last 2 years)
 Acwr$Date <- mdy(Acwr$Date)
+
 current_date <- Sys.Date()
-start_date <- current_date- months(12)
+start_date <- current_date- months(24)
 
 filtered_Acwr <- Acwr %>%
-  filter(Date >= start_date) %>%
-  group_by(anon_id,Date,Month,Year,Position) %>%
-  summarise(Total.Player.Load=mean(Total.Player.Load),
-            Total.Distance.ACWR=mean(Total.Distance.ACWR),
-            Player.Load.ACWR= mean(Player.Load.ACWR),
-            Acute.Total.Acceleration.Load.EWMA=mean(Acute.Total.Acceleration.Load.EWMA))
+  filter(Date >= start_date)
 
-filtered_Acwr <- na.omit(filtered_Acwr)
-#optional cuts down 33k obs. to 6k obs.
+#Filtered_Acwr <- na.omit(Filtered_Acwr)
+#optional cuts down 14k obs. to 2k obs.
 ```
 ```{r}
 min(filtered_Acwr$Date,na.rm=TRUE)
@@ -89,9 +79,7 @@ catapult$Date <- mdy(catapult$Date)
 current_date <- Sys.Date()
 start_date <- current_date- months(24)
 catapult <- catapult %>%
-  filter(Date >= start_date) %>%
-  group_by(anon_id,Date, Primary.Position, Month, Year) %>%
-  summarise(across(where(is.numeric), mean, na.rm=FALSE))
+  filter(Date >= start_date)
 ```
 ```{r}
 filtered_catapult <- subset(catapult,select=c("anon_id","Date","Primary.Position","Position","Total.Distance","Maximum.Velocity","Average.Velocity","TRIMP", "Velocity.Exertion", "Total.Player.Load", "Player.Load.min","Total.Acceleration.Load","Acceleration.Density.Index","Explosive.Efforts","Max.Acceleration","Max.Deceleration","Session.Mean.TRIMP","HSD.SD","VHSD.SD","Typical.Player.Load","Typical.Player.Load","Typical.Player.Load.min","Average.IMA","Session.Classification"))
@@ -144,13 +132,10 @@ filtered_incident <- subset(incident,select=c("anon_id", "Position", "Date.of.In
 
 #cut back to last 6 months (can repeat to do last 3 months aswell or instead)
 filtered_incident$Date <- mdy(filtered_incident$Date)
-current_date <- Sys.Date()
-start_date <- current_date- months(24)
+current_date1 <- Sys.Date()
+start_date1 <- current_date1- months(24)
 filtered_incident <- filtered_incident %>%
-  filter(Date >= start_date)
-
-#HAMSTRING INJURY BINARY TO USE AS RESPONSE VARIABLE 
-filtered_incident$HSI <- ifelse(filtered_incident$Body.Part == "Thigh",1,0)
+  filter(Date >= start_date1)
 ```
 ```{r}
 min(filtered_incident$Date,na.rm=TRUE)
@@ -169,9 +154,11 @@ filtered_perfnorm$Date <- mdy(filtered_perfnorm$Date)
 current_date <- Sys.Date()
 start_date <- current_date- months(24)
 filtered_perfnorm <- filtered_perfnorm %>%
-  filter(Date >= start_date) %>%
-  group_by(anon_id, Date)
+  filter(Date >= start_date)
 
+PERFnorm <- filtered_perfnorm %>%
+  group_by(anon_id, Date) %>%
+  summarise(across(where(is.numeric), mean, na.rm=FALSE))
 #can compare to NFL + NBA aswell
 
 min(filtered_perfnorm$Date,na.rm=TRUE)
@@ -264,7 +251,6 @@ min(filtered_VALD$Date,na.rm=TRUE)
 max(filtered_VALD$Date,na.rm=TRUE)
 ```
 
-## CARETERS
 ```{r}
 #selecting variables of interest
 Vald <- subset(VALD, select = c("anon_id", "Session.Date", "Position", "Trend", "Maximum.Force", "Percent.Difference.Norm", "Nordic.Left.MAX", "Nordic.Right.MAX", "Nordic.MEAN.Imbalance.with.side", "Positional.Norm", "Nordic...Difference.from.First.Test", "Month", "Year"))
@@ -342,8 +328,6 @@ high_risk <- unique(Riskstatus_high$anon_id)
 ```
 
 ```{r}
-Incident <- read.csv("~/T2P1-data-analysis-2025/data-sets/Incident Report FB.csv")
-
 #creating a list of the lower body areas in Body.Part and for OSICS codes for HSI
 lower_body <- c("Thigh", "Ankle", "Lower Leg", "Knee", "Foot", "Groin/hip")
 hamstring_OSICS14 <- c('TM1', 'TMB', 'TMS', 'TR1')
@@ -435,10 +419,10 @@ Incident <- subset(incident,select=c("anon_id","Date","Position","Date.of.Injury
 
 ```{r}
 #MERGE Incident and Riskstatus datasets
-df <- merge(riskstatus,filtered_incident,by="anon_id")  #26 predictors 
+df <- merge(riskstatus,filtered_incident,by="anon_id")
 ```
 ```{r}
-df <- merge(df,filtered_perfnorm,by="anon_id")  #34 predictors
+df <- merge(df,filtered_perfnorm,by="anon_id")
 ```
 ```{r}
 df <- merge(df,filtered_wellness,by="anon_id")
@@ -492,4 +476,9 @@ ggplot(df, aes(x=Recurrence.of.Injury))+
 #correlation checks 
 ```
 
-```{r}
+
+```{r pressure, echo=FALSE}
+plot(pressure)
+```
+
+Note that the `echo = FALSE` parameter was added to the code chunk to prevent printing of the R code that generated the plot.
