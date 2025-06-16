@@ -477,12 +477,6 @@ ggplot(df, aes(x=Recurrence.of.Injury))+
 ```
 
 
-
-
-
-
-
-
 ```{r pressure, echo=FALSE}
 plot(pressure)
 ```
