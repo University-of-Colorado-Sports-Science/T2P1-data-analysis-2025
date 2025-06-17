@@ -1,0 +1,371 @@
+---
+title: "joint_workflow"
+output: html_document
+date: "2025-06-17"
+---
+
+```{r}
+library(tidyverse)
+library(readxl)
+library(aod)
+library(tidyverse)
+library(tidyr)
+library(dplyr)
+library(ggplot2)
+library(lubridate)
+```
+
+```{r}
+#load all of the useful datasets
+ACWR <- read.csv("~/T2P1-data-analysis-2025/data-sets/ACWR-Catapult FB.csv")
+catapult <- read.csv("~/T2P1-data-analysis-2025/data-sets/Catapult Session - Outdoor FB.csv")
+incident <- read.csv("~/T2P1-data-analysis-2025/data-sets/Incident Report FB.csv")
+perfnorm <- read.csv("~/T2P1-data-analysis-2025/data-sets/Performance Normative Data FB.csv")
+perfrisk <- read.csv("~/T2P1-data-analysis-2025/data-sets/Performance Risk Assessment FB.csv")
+riskstatus <- read.csv("~/T2P1-data-analysis-2025/data-sets/Soft Tissue Risk Status Report FB.csv")
+strengthtest <- read.csv("~/T2P1-data-analysis-2025/data-sets/Strength Testing Data FB.csv")
+VALD <- read.csv("~/T2P1-data-analysis-2025/data-sets/VALD - Performance Test FB.csv")
+wellness <- read.csv("~/T2P1-data-analysis-2025/data-sets/Wellness Report FB.csv")
+```
+
+##1.ACWR
+```{r}
+#refined ACWR dataset 
+ACWR <- ACWR %>%
+  filter(Sport=="FOOTBALL")
+Acwr <- subset(ACWR,select=c("anon_id","Date","Position","Total.Player.Load","Acute.Total.Acceleration.Load.EWMA","Acceleration.Load.ACWR","Acceleration.Load.EWMA.ACWR","Player.Load.ACWR","Total.Distance.ACWR","Month","Year"))
+
+#cut back to last 12 months (last year)
+Acwr$Date <- mdy(Acwr$Date)
+current_date <- Sys.Date()
+start_date <- current_date- months(12)
+
+acwr_merge <- Acwr %>%
+  select(-c('Month', 'Year')) %>%
+  na.omit() %>%
+  mutate(Date = as.Date(Date, format = '%m/%d/%Y'))
+
+filtered_Acwr <- Acwr %>%
+  filter(Date >= start_date) %>%
+  na.omit() %>%
+  group_by(anon_id, Month, Year, Position) %>%
+  summarise(Total.Player.Load = mean(Total.Player.Load, na.rm = TRUE),
+            Acceleration.Load.EWMA.ACWR = mean(Acceleration.Load.EWMA.ACWR, na.rm = TRUE),
+            Acceleration.Load.ACWR = mean(Acceleration.Load.ACWR, na.rm = TRUE),
+            Player.Load.ACWR = mean(Player.Load.ACWR, na.rm = TRUE),
+            Acute.Total.Acceleration.Load.EWMA=mean(Acute.Total.Acceleration.Load.EWMA, na.rm=TRUE),
+            Total.Distance.ACWR = mean(Total.Distance.ACWR, na.rm = TRUE)) %>%
+  ungroup()
+```
+```{r}
+min(filtered_Acwr$Date,na.rm=TRUE)
+max(filtered_Acwr$Date,na.rm=TRUE)
+```
+
+```{r}
+ggplot(Acwr, aes(Acceleration.Load.EWMA.ACWR)) + 
+  geom_histogram(bins = 30, fill = 'royalblue', color = 'black') + 
+  labs(title = 'Distribution of Total Player Load',
+       x = 'Total Player Load',
+       y = 'Number of Players') +
+  theme_bw()
+
+Acwr_HSI <- Acwr %>%
+  filter(anon_id == 'ID_95', '2024-07-01' < Date & Date < '2024-12-01')
+
+ggplot(Acwr_HSI, aes(Acceleration.Load.EWMA.ACWR)) + 
+  geom_histogram(bins = 30, fill = 'royalblue', color = 'black') + 
+  labs(title = 'Distribution of Total Player Load in Players with HSI',
+       x = 'Total Player Load',
+       y = 'Number of Players') +
+  theme_bw()
+```
+## 2. Catapult 
+```{r}
+#refined catapult session outdoor dataset
+catapult <- catapult %>%
+filter(Sport=="FOOTBALL")
+
+catapult <- subset(catapult,select=c("anon_id", "Position", "Date", "High.Speed.Distance", "Very.High.Speed.Distance", "Maximum.Velocity", "Average.Velocity","TRIMP","IMA.Accel.Low", "IMA.Decel.Low", "IMA.Accel.Medium", "IMA.Decel.Medium", "IMA.Accel.High", "IMA.Decel.High", "IMA.Accel.Total", "IMA.Decel.Total", "Explosive.Efforts","Average.IMA","Max.Acceleration","Max.Deceleration"))
+
+catapult$Date <- mdy(catapult$Date)
+current_date <- Sys.Date()
+start_date <- current_date- months(12)
+
+filtered_catapult <- catapult %>%
+  filter(Date >= start_date) %>%
+  group_by(anon_id, Date, Position) %>%
+  summarise(High.Speed.Distance = sum(High.Speed.Distance, na.rm = TRUE),
+            Very.High.Speed.Distance = sum(Very.High.Speed.Distance, na.rm = TRUE),
+            Max.Acceleration= mean(Max.Acceleration,na.rm=TRUE),
+            Max.Deceleration= mean(Max.Deceleration, na.rm=TRUE),
+            Maximum.Velocity = mean(Maximum.Velocity, na.rm = TRUE),
+            Average.Velocity = mean(Average.Velocity, na.rm = TRUE),
+            Average.IMA= mean(Average.IMA, na.rm=TRUE),
+            TRIMP = mean(TRIMP, na.rm=TRUE),
+            IMA.Accel.Low = sum(IMA.Accel.Low, na.rm = TRUE),
+            IMA.Decel.Low = sum(IMA.Decel.Low, na.rm = TRUE),
+            IMA.Accel.Medium = sum(IMA.Accel.Medium, na.rm = TRUE),
+            IMA.Decel.Medium = sum(IMA.Decel.Medium, na.rm = TRUE),
+            IMA.Accel.High = sum(IMA.Accel.High, na.rm = TRUE),
+            IMA.Decel.High = sum(IMA.Decel.High, na.rm = TRUE),
+            IMA.Accel.Total = sum(IMA.Accel.Total, na.rm = TRUE),
+            IMA.Decel.Total = sum(IMA.Decel.Total, na.rm = TRUE),
+            Explosive.Efforts = sum(Explosive.Efforts, na.rm = TRUE))
+```
+```{r}
+min(filtered_catapult$Date,na.rm=TRUE)
+max(filtered_catapult$Date,na.rm=TRUE)
+```
+
+```{r}
+#IMAs are counted variable so sum these
+mean(catapult$High.Speed.Distance,na.rm=TRUE)
+mean(catapult$Maximum.Velocity,na.rm=TRUE)
+mean(catapult$Total.Player.Load,na.rm=TRUE)
+mean(catapult$Player.Load.min,na.rm=TRUE)
+
+#Maximum + average of the maximum & average velocity (given to us)
+max(catapult$Maximum.Velocity,na.rm=TRUE)
+mean(catapult$Average.Velocity,na.rm=TRUE)
+```
+
+## 3. Incident 
+```{r}
+incident <- read.csv("~/T2P1-data-analysis-2025/data-sets/Incident Report FB.csv")
+```
+
+```{r}
+#sort out any non football values + etc
+incident <- incident %>%
+filter(Sport=="FOOTBALL") %>%
+filter(Incident.Type=="Injury") %>%
+filter(Result.of.Sport.Participation=="Yes")
+
+filtered_incident <- subset(incident,select=c("anon_id", "Position", "Date.of.Injury...Onset.of.symptoms", "Side", "Body.Part", "Tissue.Type", "Pathology.Type", "OSICS14.Code", "OSICS10.Code", "OSICS10.Diagnosis", "Final.Diagnosis", "Result.of.Sport.Participation", "Recurrence.of.Injury", "Injury.Prognosis", "General.Mechanism", "Specific.Mechanism", "FinalDiagnosisIncidentDate", "Total.Time.Injured", "Month", "Year","Incident.Type"))[-c(1167,1168),]
+
+#cut back to last year
+filtered_incident$Date <- mdy(filtered_incident$Date)
+current_date <- Sys.Date()
+start_date <- current_date- months(12)
+filtered_incident <- filtered_incident %>%
+  filter(Date >= start_date)
+
+#HAMSTRING INJURY BINARY TO USE AS RESPONSE VARIABLE 
+filtered_incident$HSI <- ifelse(filtered_incident$Body.Part == "Thigh",1,0)
+```
+
+##THIS WONT WORK //
+```{r, warning = FALSE}
+#filter for just hamstring related injuries and get rid of duplicate observations
+incident_HSI <- filtered_incident %>%
+  filter("Hamstring strain" %in% OSICS10.Diagnosis) %>%
+  #filter(OSICS14.Code %in% hamstring_OSICS14) %>%
+  group_by(anon_id, Date.of.Injury...Onset.of.symptoms) %>%
+  mutate(Total.Time.Injured = sum(Total.Time.Injured, na.rm = TRUE),
+         Date = as.Date(Date.of.Injury...Onset.of.symptoms, format = '%m/%d/%Y')) %>%
+  ungroup() %>%
+  group_by(across(everything())) %>%
+  summarise(.groups = 'drop')
+```
+
+```{r}
+#filter for only lower body injuries and get rid of duplicate observations
+incident_lower <- filtered_incident %>%
+  filter(Body.Part %in% lower_body) %>%
+  group_by(anon_id, Date.of.Injury...Onset.of.symptoms) %>%
+  mutate(Total.Time.Injured = sum(Total.Time.Injured, na.rm = TRUE),
+         Date = as.Date(Date.of.Injury...Onset.of.symptoms, format = '%m/%d/%Y')) %>%
+  ungroup() %>%
+  group_by(across(everything())) %>%
+  summarise(.groups = 'drop')
+
+#creating a list of players who experienced HSI
+players_HSI <- unique(incident_HSI$anon_id)
+
+#consolidate same players into one observation
+incident_HSI2 <- incident_HSI %>%
+  mutate(Date = as.Date(Date.of.Injury...Onset.of.symptoms, format = '%m/%d/%Y')) %>%
+  arrange(Date) %>%
+  group_by(anon_id) %>%
+  summarize(Outcome = paste0(Date, collapse = " and ")) %>%
+  separate(Outcome, c('Injury.1', 'Injury.2', 'Injury.3', 'Injury.4'), sep = ' and ')
+```
+
+## 4. Performance Normative data
+```{r}
+filtered_perfnorm <- subset(perfnorm,select=c("anon_id","Date","Position","Nordic.Average","Nordic.Imbalance..","Adduction.Abduction.Ratio","Eccentric.Peak.Power...Relative","Jump.Height","Modified.RSI"))
+
+#cut back to last year
+filtered_perfnorm$Date <- mdy(filtered_perfnorm$Date)
+current_date <- Sys.Date()
+start_date <- current_date- months(12)
+perfnorm_merge <- filtered_perfnorm %>%
+  filter(Date >= start_date) %>%
+  group_by(anon_id, Date) %>%
+  select(-Position) %>%
+  mutate(Date = as.Date(Date, format = '%m/%d/%Y')) %>%
+  na.omit()
+
+#can compare to NFL + NBA aswell
+min(filtered_perfnorm$Date,na.rm=TRUE)
+max(filtered_perfnorm$Date,na.rm=TRUE)
+```
+
+## 5. Performance Risk Assessment 
+DATASET ONLY FROM ONE DAY OF LAST YEAR.
+
+```{r}
+#filter football
+perfrisk <- perfrisk %>%
+  filter(Sport=="FOOTBALL")
+#ALL variables are relevant
+filtered_perfrisk <- subset(perfrisk,select=c("anon_id", "Date","Position","Hamstring.Avg..Imbalance", "L..Hamstring.Max.Force","R..Hamstring.Max.Force","L..Eccentric.Mean.Force","R..Eccentric.Mean.Force","Eccentric.Mean.Force.Asym","CMJ.Landing.Asym.","CMJ.Jump.Height","Groin.Avg..Imbalance", "Relative.Peak.Power","CMJ.Peak.Force","IMTP.Peak.Force"))
+
+perfrisk_merge <- filtered_perfrisk %>%
+  select(-Position) %>%
+  mutate(Date = as.Date(Date, format = '%m/%d/%Y')) %>%
+  na.omit()
+```
+
+## 6. Soft Tissue Risk Status
+```{r}
+riskstatus <- read.csv("~/T2P1-data-analysis-2025/data-sets/Soft Tissue Risk Status Report FB.csv")
+```
+
+```{r}
+#refined risk status dataset
+#contains variable, what we are comparing against// validating 
+riskstatus <- riskstatus[,-c(1,5)]
+
+#cut back to last year
+riskstatus$Date <- mdy(riskstatus$Date)
+current_date <- Sys.Date()
+start_date <- current_date- months(12)
+riskstatus <- riskstatus %>%
+  filter(Date >= start_date) #215 -> 100 obs.
+
+#binary could be useful when testing accuracy/importance of high risk status
+Highrisk_binary=ifelse(riskstatus$Status=="High",1,0)
+#cbind(Riskstatus,Highrisk_binary)
+
+riskstatus$Highrisk_binary = Highrisk_binary
+
+merge_risk <- riskstatus %>%
+  mutate(Date = as.Date(Date, format = '%m/%d/%Y'))
+
+min(riskstatus$Date,na.rm=TRUE)
+max(riskstatus$Date,na.rm=TRUE)
+```
+
+## 7. Stength Test
+```{r}
+#not expected to use this dataset alot + no real need to filter atm 
+strengthtest <- read.csv("~/T2P1-data-analysis-2025/data-sets/Strength Testing Data FB.csv")
+```
+
+```{r}
+#cut back to last year
+strengthtest$Date <- mdy(strengthtest$Date)
+current_date <- Sys.Date()
+start_date <- current_date- months(12)
+strengthtest_merge <- strengthtest %>%
+  filter(Date >= start_date) %>%  # 224 -> 26 obs.
+  mutate(Date = as.Date(Date, format = '%m/%d/%Y')) %>%
+  na.omit()
+
+min(strengthtest$Date,na.rm=TRUE)
+max(strengthtest$Date,na.rm=TRUE)
+```
+
+## 8. VALD Performance Test 
+```{r}
+filtered_VALD <- subset(VALD, select = c("anon_id","Date", "Session.Date", "Position", "Trend", "Maximum.Force","Average.Force","Impulse", "Percent.Difference.Norm", "Nordic.Left.MAX", "Nordic.Right.MAX", "Nordic.MEAN.Imbalance.with.side", "Positional.Norm","Hip.Abd.Trend","Hip.Add.Trend", "Nordic...Difference.from.First.Test", "Month", "Year"))
+
+#cut back to last year
+filtered_VALD$Date <- mdy(filtered_VALD$Date)
+current_date <- Sys.Date()
+start_date <- current_date- months(12)
+filtered_VALD <- filtered_VALD %>%
+  filter(Date >= start_date)
+
+vald_merge <- filtered_VALD %>%
+  select(-c('Month', 'Year', 'Position')) %>%
+  mutate(Date = as.Date(Session.Date, format = '%m/%d/%Y')) %>%
+  na.omit()
+
+filtered_vald <- filtered_VALD %>%
+  mutate(Session.Date = as.Date(Session.Date, format = '%m/%d/%Y')) %>%
+  group_by(anon_id, Month, Year, Trend) %>%
+  summarise(Maximum.Force = mean(Maximum.Force, na.rm = TRUE),
+            Percent.Difference.Norm = mean(Percent.Difference.Norm, na.rm = TRUE),
+            Nordic.Left.MAX = mean(Nordic.Left.MAX, na.rm = TRUE),
+            Nordic.Right.MAX = mean(Nordic.Right.MAX, na.rm = TRUE),
+            Nordic.MEAN.Imbalance.with.side = mean(Nordic.MEAN.Imbalance.with.side, na.rm = TRUE),
+            Positional.Norm = mean(Positional.Norm, na.rm = TRUE),
+            Nordic...Difference.from.First.Test = mean(Nordic...Difference.from.First.Test, na.rm = TRUE)) %>%
+  ungroup()
+
+min(filtered_VALD$Date,na.rm=TRUE)
+max(filtered_VALD$Date,na.rm=TRUE)
+```
+
+```{r}
+ggplot(filtered_vald, aes(x = Maximum.Force)) + 
+  geom_histogram(bins = 30, fill = 'royalblue', color = 'black') + 
+  labs(title = 'Distribution of Nordic Maximum Force',
+       x = 'Maximum Force',
+       y = 'Number of Athletes') +
+  theme_bw()
+```
+
+## 9. Wellness
+```{r}
+wellness <- read.csv("~/T2P1-data-analysis-2025/data-sets/Wellness Report FB.csv")
+```
+
+```{r}
+wellness <- wellness %>%
+  filter(Sport=="FOOTBALL")
+
+#mental score, physical score,sleep quality score, soreness scores, + overall wellness all relevant 
+filtered_wellness <- subset(wellness, select=c("anon_id","Date","Mental.Score","Physical.Score", "Sleep.Quality.Score","Soreness.Score","Overall.Wellness.Score","Wellness.Compliance","Month","Year"))
+
+#cut back to last year
+filtered_wellness$Date <- mdy(filtered_wellness$Date)
+current_date <- Sys.Date()
+start_date <- current_date- months(12)
+filtered_wellness <- filtered_wellness %>%
+  filter(Date >= start_date) 
+
+Wellness_merge <- filtered_wellness %>%
+  select(-c('Month', 'Year')) %>%
+  mutate(Date = as.Date(Date, format = '%m/%d/%Y')) %>%
+  na.omit()
+
+#omit the N/A's
+filtered_wellness <- filtered_wellness %>%
+  na.omit() %>%
+  group_by(anon_id, Month, Year) %>%
+  summarise(Mental.Score = mean(Mental.Score),
+            Physical.Score = mean(Physical.Score),
+            Sleep.Quality.Score = mean(Sleep.Quality.Score),
+            Soreness.Score = mean(Soreness.Score),
+            Overall.Wellness.Score = mean(Overall.Wellness.Score))
+min(filtered_wellness$Date,na.rm=TRUE)
+max(filtered_wellness$Date,na.rm=TRUE)
+```
+
+```{r}
+ggplot(data = filtered_wellness, aes(x = Overall.Wellness.Score)) + 
+  geom_histogram(bins = 30, color = 'black', fill = 'royalblue') +
+  theme_bw()
+```
+
+
+
+
+
+
+
+Note that the `echo = FALSE` parameter was added to the code chunk to prevent printing of the R code that generated the plot.
