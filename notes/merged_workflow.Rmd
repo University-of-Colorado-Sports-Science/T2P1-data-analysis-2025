@@ -1,11 +1,11 @@
 ---
-title: "sydney-notebook"
+title: "joint_workflow"
 output: html_document
-date: "2025-06-16"
+date: "2025-06-17"
 ---
 
 ```{r}
-#Author: [Sydney Stanton]
+#Authors: [Sydney Stanton, Carter Zborowski]
 
 #Author Date: 06/09/2025
 #Purpose: The purpose of this notebook is to house all data set transformation, cleansing, visualization, statistical analysis, and note-taking for the 2025 CU Athletic Department Sports Science Internship Program
@@ -33,8 +33,6 @@ strengthtest <- read.csv("~/T2P1-data-analysis-2025/data-sets/Strength Testing D
 VALD <- read.csv("~/T2P1-data-analysis-2025/data-sets/VALD - Performance Test FB.csv")
 wellness <- read.csv("~/T2P1-data-analysis-2025/data-sets/Wellness Report FB.csv")
 ```
-
-## Data Cleaning 
 
 ##1.ACWR
 ```{r}
@@ -88,7 +86,6 @@ ggplot(Acwr_HSI, aes(Acceleration.Load.EWMA.ACWR)) +
        y = 'Number of Players') +
   theme_bw()
 ```
-
 ## 2. Catapult 
 ```{r}
 #refined catapult session outdoor dataset
@@ -344,8 +341,12 @@ start_date <- current_date- months(12)
 filtered_VALD <- filtered_VALD %>%
   filter(Date >= start_date)
 
-##CHANGED THIS ON THIS BUT NOT THE MERGE DOCUMENT 
-filtered_VALD <- filtered_VALD %>%
+vald_merge <- filtered_VALD %>%
+  select(-c('Month', 'Year', 'Position')) %>%
+  mutate(Date = as.Date(Session.Date, format = '%m/%d/%Y')) %>%
+  na.omit()
+
+filtered_vald <- filtered_VALD %>%
   mutate(Session.Date = as.Date(Session.Date, format = '%m/%d/%Y')) %>%
   group_by(anon_id, Month, Year, Trend) %>%
   summarise(Maximum.Force = mean(Maximum.Force, na.rm = TRUE),
@@ -357,12 +358,8 @@ filtered_VALD <- filtered_VALD %>%
             Nordic...Difference.from.First.Test = mean(Nordic...Difference.from.First.Test, na.rm = TRUE)) %>%
   ungroup()
 
-filtered_vald <- filtered_VALD %>%
-  select(-c('Month', 'Year')) %>%
-  na.omit()
-
-#min(filtered_VALD$Date,na.rm=TRUE)
-#max(filtered_VALD$Date,na.rm=TRUE)
+min(filtered_VALD$Date,na.rm=TRUE)
+max(filtered_VALD$Date,na.rm=TRUE)
 ```
 
 
@@ -448,7 +445,7 @@ merge_well <- merge_well %>%
 ```
 3. Merging VALD
 ```{r}
-merge_vald <- merge(HSI_6_months, filtered_vald, by = c('anon_id'), all = TRUE)
+merge_vald <- merge(HSI_6_months, vald_merge, by = c('anon_id'), all = TRUE)
 
 merge_vald <- merge_vald %>%
   mutate(Group = ifelse(Injury.1.Start <= Date & Date <= Injury.1, 1, ifelse(Injury.2.Start <= Date & Date <= Injury.2, 2, ifelse(Injury.3.Start <= Date & Date <= Injury.3, 3, ifelse(Injury.4.Start <= Date & Date <= Injury.4, 4, 0)))))
@@ -678,7 +675,6 @@ ggplot(df,aes(x=Position,fill=Status))+   #stacked bar chart
   geom_bar(inherit.aes = TRUE)+
   scale_fill_brewer()
 ```
-
 ```{r}
 #Nordic.Left.MAX , Nordic.Right.MAX , color== HSI
 ggplot(data=final_merge, aes(x=Nordic.Left.MAX, y=Nordic.Right.MAX,color=factor(HSI)))+
@@ -712,7 +708,6 @@ ggplot(df, aes(x=Recurrence.of.Injury))+
 boxplot(Percent.Difference.Norm~Status,data=final_merge,lmain="Risk Status vs % Difference Norm", col="lightblue")
 boxplot(Positional.Norm~Status,data=final_merge,lmain="Risk Status vs % Difference Norm", col="lightblue")
 ```
-
 -Lower body injuries are most prevalent .With the thigh which includes the hamstring having the greatest quantity of injuries of the lower body.
 -Recurrence of injuries is not as high as anticipated. New injuries is the biggest threat to our team.
 
@@ -764,7 +759,6 @@ ggplot(tests_outcomes_hr, aes(x = outcomes_hr, fill = outcomes_hr)) +
        y = 'Number of Observations') + 
   theme_bw()
 ```
-
 ##REPEATED CODE// DECIDE WHICH VARIABLE NAMES USED AGAIN LATER AND KEEP THAT CODE CHUNKS
 ```{r, warning = FALSE}
 #combines the dates the athletes were deemed high risk with their injuries and separates the injury occurrences and dates
@@ -1110,4 +1104,4 @@ Player ID_111 injured his left hamstring less than a month after the test and ri
 
 
 
-
+Note that the `echo = FALSE` parameter was added to the code chunk to prevent printing of the R code that generated the plot.
