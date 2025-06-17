@@ -13,7 +13,9 @@ library(dplyr)
 library(ggplot2)
 ```
 
+
 # Importing and Cleaning Datasets
+
 
 ```{r}
 #load all of the useful datasets
@@ -231,7 +233,7 @@ ggplot(data = Wellness2, aes(x = Overall.Wellness.Score)) +
 
 # Attempting to Merge Datasets into One filtered by date
 
-1. Creating Incident Report with Start and End Dates
+Creating Incident Report with Start and End Dates
 
 
 ```{r, warning = FALSE}
@@ -242,14 +244,35 @@ HSI_last_injury <- incident_HSI %>%
   group_by(anon_id) %>%
   summarize(Dates.Final = paste0(Date, collapse = " and "),
             Mechanism = paste0(General.Mechanism, collapse = " and "),
-            Recurrence = paste0(Recurrence.of.Injury, collapse = " and ")) %>%
+            Recurrence = paste0(Recurrence.of.Injury, collapse = " and "),
+            Time.Injured = paste0(Total.Time.Injured, collapse = " and ")) %>%
   separate(Dates.Final, c('Injury.1', 'Injury.2', 'Injury.3', 'Injury.4'), sep = ' and ') %>%
   mutate(Injury.1.Start = as.Date(Injury.1) - months(6),
          Injury.2.Start = ifelse(is.na(Injury.2), NA, Injury.1),
          Injury.3.Start = ifelse(is.na(Injury.3), NA, Injury.2),
          Injury.4.Start = ifelse(is.na(Injury.4), NA, Injury.3)) %>%
   separate(Mechanism, c('Injury.1.Mech', 'Injury.2.Mech', 'Injury.3.Mech', 'Injury.4.Mech'), sep = ' and ') %>%
-  separate(Recurrence, c('Injury.1.Recur', 'Injury.2.Recur', 'Injury.3.Recur', 'Injury.4.Recur'), sep = ' and ')
+  separate(Recurrence, c('Injury.1.Recur', 'Injury.2.Recur', 'Injury.3.Recur', 'Injury.4.Recur'), sep = ' and ') %>%
+  separate(Time.Injured, c('Injury.1.Time', 'Injury.2.Time', 'Injury.3.Time', 'Injury.4.Time'), sep = ' and ')
+```
+
+1. Merging Incident
+
+```{r}
+#trying to merge hamstring injuries with other lower body injuries
+merge_incid <- merge(HSI_last_injury, incident_HSI, by = c('anon_id'), all = TRUE)
+
+merge_incid <- merge_incid %>%
+  mutate(Group = ifelse(Injury.1.Start <= Date & Date <= Injury.1, 1, ifelse(Injury.2.Start <= Date & Date <= Injury.2, 2, ifelse(Injury.3.Start <= Date & Date <= Injury.3, 3, ifelse(Injury.4.Start <= Date & Date <= Injury.4, 4, ifelse(Date > Injury.4, 'After', 0)))))) %>%
+  filter(is.na(Group) | Group != 'After')
+
+merge_incid <- merge_incid %>%
+  mutate(Mechanism = ifelse(Group == 4, Injury.4.Mech, ifelse(Group == 3, Injury.3.Mech, ifelse(Group == 2, Injury.2.Mech, ifelse(Group == 1, Injury.1.Mech, NA)))),
+         Recurrence = ifelse(Group == 4, Injury.4.Recur, ifelse(Group == 3, Injury.3.Recur, ifelse(Group == 2, Injury.2.Recur, ifelse(Group == 1, Injury.1.Recur, NA)))),
+         Time.Injured = ifelse(Group == 4, Injury.4.Time, ifelse(Group == 3, Injury.3.Time, ifelse(Group == 2, Injury.2.Time, ifelse(Group == 1, Injury.1.Time, NA))))) %>%
+  group_by(anon_id, Group, Mechanism, Recurrence, Time.Injured) %>%
+  summarise(OSICS14.Code = paste0(OSICS14.Code, collapse = " and ")) %>%
+  mutate(Injuries.Last.3.Months = ifelse(is.na(Group) | Group == 0, sapply(strsplit(OSICS14.Code, " and "), length), sapply(strsplit(OSICS14.Code, " and "), length) - 1))
 ```
 
 2. Merging Wellness
@@ -394,8 +417,9 @@ merge_strgth <- merge_strgth %>%
 9. Merging All Datasets Together
 
 ```{r}
+final_merge_full <- merge(merge_incid, merge_vald, by = c('anon_id', 'Group'), all = TRUE)
 #merging catapult with VALD
-final_merge_full <- merge(merge_catapult, merge_vald, by = c('anon_id', 'Group'), all = TRUE)
+final_merge_full <- merge(final_merge_full, merge_catapult, by = c('anon_id', 'Group'), all = TRUE)
 #merging wellness
 final_merge_full <- merge(final_merge_full, merge_well, by = c('anon_id', 'Group'), all = TRUE)
 #merging ACWR
@@ -410,6 +434,10 @@ final_merge_full <- merge(final_merge_full, merge_strgth, by = c('anon_id', 'Gro
 #making a binary indicator variable HSI and ommitting the N/As
 final_merge <- final_merge_full %>%
   mutate(Group = ifelse(is.na(Group), 0, Group),
+         Mechanism = ifelse(is.na(Mechanism), 'None', Mechanism),
+         Recurrence = ifelse(is.na(Recurrence), 'None', Recurrence),
+         Time.Injured = ifelse(is.na(Time.Injured), 0, Time.Injured),
+         OSICS14.Code = ifelse(is.na(OSICS14.Code), 'None', OSICS14.Code),
          HSI = ifelse(Group > 0, 1, 0)) %>%
   select(-Group) %>%
   na.omit()
