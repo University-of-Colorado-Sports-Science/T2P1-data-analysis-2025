@@ -4,13 +4,12 @@ output: html_notebook
 ---
 
 ```{r}
-
 #Authors: [Sydney Stanton, Carter Zborowski]
 
 #Author Date: 06/09/2025
 #Purpose: The purpose of this notebook is to house all data set transformation, cleansing, visualization, statistical analysis, and note-taking for the 2025 CU Athletic Department Sports Science Internship Program
 
-#LAST UPDATED: 06/12/2025
+#LAST UPDATED: 06/17/2025
 
 #Including helpful libraries
 library(tidyverse)
@@ -156,6 +155,7 @@ filtered_incident$HSI <- ifelse(filtered_incident$Body.Part == "Thigh",1,0)
 min(filtered_incident$Date,na.rm=TRUE)
 max(filtered_incident$Date,na.rm=TRUE)
 ```
+
 
 4. Performance Normative Data
 ```{r}
