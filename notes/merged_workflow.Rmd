@@ -675,6 +675,13 @@ ggplot(data=final_merge, aes(x=Nordic.Left.MAX, y=Nordic.Right.MAX,color=factor(
   geom_point()
 
 #Explosive.Efforts by Nordic.Average 
+ggplot(data=final_merge,aes(x=Positional.Norm, y=Maximum.Force, color=factor(Status)))+
+  geom_jitter()+
+  geom_point()
+
+ggplot(data=final_merge,aes(x=Physical.Score, y=Mental.Score, color=factor(Status)))+
+  geom_point()
+
 
 #Left.Hamstring.Force..Nordic. 
 ggplot(data=final_merge, aes(x=Left.Hamstring.Force..Nordic., y=Right.Hamstring.Force..Nordic.,color=factor(HSI)))+
@@ -691,25 +698,12 @@ ggplot(df, aes(x=Recurrence.of.Injury))+
   geom_bar(fill="lightblue")+
   labs(title="Recurrence of Injury Spread",x="Injury Recurrence",y="Frequency")
 
-
-#injury rate by risk category (Riskstatus)
-#injury rate by previous injury history
-
 #distributions of strength/imbalance by risk category 
-#boxplot(y~`Status,data=df)
+boxplot(Percent.Difference.Norm~Status,data=final_merge,lmain="Risk Status vs % Difference Norm", col="lightblue")
+boxplot(Positional.Norm~Status,data=final_merge,lmain="Risk Status vs % Difference Norm", col="lightblue")
 ```
-
-```{r}
-#risk category validity checks 
-```
-
-
-```{r}
-#correlation checks of predictors 
-
-plot()
-```
-
+-Lower body injuries are most prevalent .With the thigh which includes the hamstring having the greatest quantity of injuries of the lower body.
+-Recurrence of injuries is not as high as anticipated. New injuries is the biggest threat to our team.
 
 
 ## VALIDATION OF SOFT TISSUE WATCHLIST 
@@ -759,7 +753,7 @@ ggplot(tests_outcomes_hr, aes(x = outcomes_hr, fill = outcomes_hr)) +
        y = 'Number of Observations') + 
   theme_bw()
 ```
-##REPEATED CODE// DECIDE WHICH VARIABLE NAMES USED AGAIN LATER 
+##REPEATED CODE// DECIDE WHICH VARIABLE NAMES USED AGAIN LATER AND KEEP THAT CODE CHUNKS
 ```{r, warning = FALSE}
 #combines the dates the athletes were deemed high risk with their injuries and separates the injury occurrences and dates
 validation_all <- left_join(Riskstatus_high, incident_hr_all2, by = 'anon_id') %>%
