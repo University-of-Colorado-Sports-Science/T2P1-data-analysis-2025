@@ -338,12 +338,8 @@ start_date <- current_date- months(12)
 filtered_VALD <- filtered_VALD %>%
   filter(Date >= start_date)
 
-vald_merge <- filtered_VALD %>%
-  select(-c('Month', 'Year', 'Position')) %>%
-  mutate(Date = as.Date(Session.Date, format = '%m/%d/%Y')) %>%
-  na.omit()
-
-filtered_vald <- filtered_VALD %>%
+##CHANGED THIS ON THIS BUT NOT THE MERGE DOCUMENT 
+filtered_VALD <- filtered_VALD %>%
   mutate(Session.Date = as.Date(Session.Date, format = '%m/%d/%Y')) %>%
   group_by(anon_id, Month, Year, Trend) %>%
   summarise(Maximum.Force = mean(Maximum.Force, na.rm = TRUE),
@@ -355,8 +351,12 @@ filtered_vald <- filtered_VALD %>%
             Nordic...Difference.from.First.Test = mean(Nordic...Difference.from.First.Test, na.rm = TRUE)) %>%
   ungroup()
 
-min(filtered_VALD$Date,na.rm=TRUE)
-max(filtered_VALD$Date,na.rm=TRUE)
+filtered_vald <- filtered_VALD %>%
+  select(-c('Month', 'Year')) %>%
+  na.omit()
+
+#min(filtered_VALD$Date,na.rm=TRUE)
+#max(filtered_VALD$Date,na.rm=TRUE)
 ```
 
 
@@ -442,7 +442,7 @@ merge_well <- merge_well %>%
 ```
 3. Merging VALD
 ```{r}
-merge_vald <- merge(HSI_6_months, vald_merge, by = c('anon_id'), all = TRUE)
+merge_vald <- merge(HSI_6_months, filtered_vald, by = c('anon_id'), all = TRUE)
 
 merge_vald <- merge_vald %>%
   mutate(Group = ifelse(Injury.1.Start <= Date & Date <= Injury.1, 1, ifelse(Injury.2.Start <= Date & Date <= Injury.2, 2, ifelse(Injury.3.Start <= Date & Date <= Injury.3, 3, ifelse(Injury.4.Start <= Date & Date <= Injury.4, 4, 0)))))
