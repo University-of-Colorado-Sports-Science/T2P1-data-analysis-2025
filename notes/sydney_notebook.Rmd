@@ -281,7 +281,7 @@ Highrisk_binary=ifelse(riskstatus$Status=="High",1,0)
 
 riskstatus$Highrisk_binary = Highrisk_binary
 
-merge_risk <- riskstatus %>%
+risk_merge <- riskstatus %>%
   mutate(Date = as.Date(Date, format = '%m/%d/%Y'))
 
 min(riskstatus$Date,na.rm=TRUE)
@@ -542,17 +542,17 @@ merge_acwr <- merge_acwr %>%
             Total.Distance.ACWR = mean(Total.Distance.ACWR, na.rm = TRUE))
 ```
 
-6. Merging Soft Tissue
+6. Merging Soft Tissue Risks
 ```{r}
-merge_risk <- merge(HSI_last_injury, merge_risk, by = c('anon_id'), all = TRUE)
+merge_risk <- merge(HSI_last_injury, risk_merge, by = c('anon_id'), all = TRUE)
 
 merge_risk <- merge_risk %>%
   mutate(Group = ifelse(Injury.1.Start <= Date & Date <= Injury.1, 1, ifelse(Injury.2.Start <= Date & Date <= Injury.2, 2, ifelse(Injury.3.Start <= Date & Date <= Injury.3, 3, ifelse(Injury.4.Start <= Date & Date <= Injury.4, 4, 0)))))
 
 merge_risk <- merge_risk %>%
   select(anon_id, Group, Status) %>%
-  group_by(across(all_of(non_numeric_cols))) %>%
-  group_by(across(where(is.numeric))) %>%
+  #group_by(across(all_of(non_numeric_cols))) %>%
+  group_by(across(everything())) %>%
   summarise(.groups = 'drop')
 ```
 
@@ -592,6 +592,39 @@ merge_strgth <- merge_strgth %>%
             Right.Hamstring.Quad.Percentage = mean(Right.Hamstring.Quad.Percentage, na.rm = TRUE))
 ```
 
+```{r}
+#function for mode
+get_mode <- function(v) {
+  uniqv <- unique(v)
+  uniqv[which.max(tabulate(match(v, uniqv)))]
+}
+
+#consolidate by getting most frequent Position per anon_id
+position_merge <- acwr_merge %>%
+  select(anon_id, Position) %>%
+  group_by(anon_id) %>%
+  summarise(Position = get_mode(Position), .groups = 'drop')
+
+#date df
+Date <- acwr_merge %>%
+  select(anon_id, Date)
+
+pos_merge <- merge(position_merge, Date, by=c('anon_id'), all=TRUE)
+```
+
+```{r}
+#merges the HSI_last_injury with position by anon_id
+merge_position <- merge(HSI_last_injury, pos_merge, by = c('anon_id'), all = TRUE)
+
+merge_position <- merge_position %>%
+  mutate(Group = ifelse(Injury.1.Start <= Date & Date <= Injury.1, 1, ifelse(Injury.2.Start <= Date & Date <= Injury.2, 2, ifelse(Injury.3.Start <= Date & Date <= Injury.3, 3, ifelse(Injury.4.Start <= Date & Date <= Injury.4, 4, 0)))))
+
+#groups observations by the player id and which period the observation falls under then averages all numerical variables
+merge_position <- merge_position %>%
+  group_by(anon_id, Group) %>%
+  summarise(Position = get_mode(Position), .groups = 'drop')
+```
+
 ##Merging All Datasets Together
 ```{r}
 #merging wellness with VALD
@@ -606,14 +639,17 @@ final_merge_full <- merge(final_merge_full, merge_risk, by = c('anon_id', 'Group
 final_merge_full <- merge(final_merge_full, merge_perfnorm, by = c('anon_id', 'Group'), all = TRUE)
 #merging strength testing data, does lower number of observations in final_merge
 final_merge_full <- merge(final_merge_full, merge_strgth, by = c('anon_id', 'Group'), all = TRUE)
-
-#making a binary indicator variable HSI and ommitting the N/As
-final_merge <- final_merge_full %>%
-  mutate(Group = ifelse(is.na(Group), 0, Group),
-         HSI = ifelse(Group > 0, 1, 0)) %>%
-  select(-Group) %>%
-  na.omit()
+#adding positions to final dataset 
+final_merge_full <- merge(final_merge_full, merge_position, by=c('anon_id','Group'), all=TRUE)
 ```
+
+```{r}
+#making a binary indicator variable HSI and ommitting the N/As
+final_merge_full$HSI <- ifelse(final_merge_full$Group > 0, 1, 0)
+    #select(-Group) %>% ,possibly remove group 
+# 681 obs. 55 variables in FINAL DATASET 
+```
+
 
 ## 3 Months Prior Emphasis from Blake
 
