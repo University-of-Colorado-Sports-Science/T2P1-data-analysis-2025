@@ -496,6 +496,7 @@ merge_vald <- merge_vald %>%
   summarise(Maximum.Force = mean(Maximum.Force, na.rm = TRUE),
             Percent.Difference.Norm = mean(Percent.Difference.Norm, na.rm = TRUE),
             Nordic.Left.MAX = mean(Nordic.Left.MAX, na.rm = TRUE),
+            Trend = get_mode(Trend),
             Nordic.Right.MAX = mean(Nordic.Right.MAX, na.rm = TRUE),
             Nordic.Left.Z.Score = mean(Nordic.Left.Z.Score, na.rm = TRUE),
             Nordic.Right.Z.Score = mean(Nordic.Right.Z.Score, na.rm = TRUE),
@@ -626,15 +627,19 @@ merge_position <- merge_position %>%
   mutate(Group = ifelse(Injury.1.Start <= Date & Date <= Injury.1, 1, ifelse(Injury.2.Start <= Date & Date <= Injury.2, 2, ifelse(Injury.3.Start <= Date & Date <= Injury.3, 3, ifelse(Injury.4.Start <= Date & Date <= Injury.4, 4, 0)))))
 
 #groups observations by the player id and which period the observation falls under then averages all numerical variables
+#merge_position <- merge_position %>%
+ # group_by(anon_id, Group) %>%
+ # summarise(OSICS14.Code, Body.Part=get_mode(Body.Part),Position = get_mode(Position), .groups = 'drop')
+
 merge_position <- merge_position %>%
-  group_by(anon_id, Group) %>%
-  summarise(OSICS14.Code, Body.Part=get_mode(Body.Part),Position = get_mode(Position), .groups = 'drop')
+  group_by(anon_id, OSICS14.Code,Group) %>%
+  summarise(Body.Part=get_mode(Body.Part),Position = get_mode(Position), .groups = 'drop')
 
 #add binary to determine if incident is HSI or not 
 merge_position$HSI <- ifelse(merge_position$OSICS14.Code %in% c("TMI","TMB","TMS"),1,0)
 
-merge_position <- merge_position %>%
-  select(-c(OSICS14.Code)) #%>%
+#merge_position <- merge_position %>%
+  #select(-c(OSICS14.Code)) #%>%
   #group_by(anon_id) %>%
  # summarize(Body.Part,Position, HSI)
 ```
@@ -659,13 +664,10 @@ final_merge_full <- merge(final_merge_full, merge_position, by=c('anon_id','Grou
 ```
 
 ```{r}
-#making a binary indicator variable HSI and ommitting the N/As
-final_merge_full$HSI <- ifelse(final_merge_full$Group >=1, 1, 0)
-    #select(-Group) %>% ,possibly remove group 
-# 679 obs. 55 variables in FINAL DATASET 
-
+#add binary to determine if incident is HSI or not 
+final_merge_full$HSI <- ifelse(final_merge_full$OSICS14.Code %in% c("TMI","TMB","TMS"),1,0)
+#1512 observations and 58 variables 
 ```
-
 
 ## 3 Months Prior Emphasis from Blake
 ```{r, warning = FALSE}
@@ -700,6 +702,7 @@ merge_vald <- merge_vald %>%
   summarise(Maximum.Force = mean(Maximum.Force, na.rm = TRUE),
             Percent.Difference.Norm = mean(Percent.Difference.Norm, na.rm = TRUE),
             Nordic.Left.MAX = mean(Nordic.Left.MAX, na.rm = TRUE),
+            Trend= get_mode(Trend),
             Nordic.Right.MAX = mean(Nordic.Right.MAX, na.rm = TRUE),
             Nordic.MEAN.Imbalance.with.side = mean(Nordic.MEAN.Imbalance.with.side, na.rm = TRUE),
             Positional.Norm = mean(Positional.Norm, na.rm = TRUE),
@@ -727,6 +730,7 @@ full_merge <- merge(merge_lower, merge_vald, by = c('anon_id', 'Group'), all = T
 
 filtered_full3_merge <- full_merge %>%
   mutate(Group = ifelse(is.na(Group), 0, Group),
+         Trend= get_mode(Trend),
          Mechanism = ifelse(is.na(Mechanism), 'None', Mechanism),
          Recurrence = ifelse(is.na(Recurrence), 'None', Recurrence),
          Time.Injured = ifelse(is.na(Time.Injured), 0, Time.Injured),
@@ -774,6 +778,7 @@ ggplot(df,aes(x=Position,fill=Status))+   #stacked bar chart
   scale_fill_brewer()
 ```
 
+
 ```{r}
 #Nordic.Left.MAX , Nordic.Right.MAX , color== HSI
 ggplot(data=final_merge_full, aes(x=Nordic.Left.MAX, y=Nordic.Right.MAX,color=factor(HSI)))+
@@ -810,7 +815,8 @@ boxplot(Player.Load.ACWR~Status,data=final_merge_full,lmain="Risk Status vs % Di
 -Lower body injuries are most prevalent .With the thigh which includes the hamstring having the greatest quantity of injuries of the lower body.
 -Recurrence of injuries is not as high as anticipated. New injuries is the biggest threat to our team.
 
-## VALIDATION OF SOFT TISSUE WATCHLIST 
+
+## Q1:: VALIDATION OF SOFT TISSUE WATCHLIST 
 1. Players Deemed High Risk
 ```{r}
 #filtering just the high risk athletes from the watchlist
@@ -1229,11 +1235,109 @@ Player ID_111 injured his left hamstring less than a month after the test and ri
 
 ## Correlation Tests
 ```{r}
-cor(data %>% select_if(is.numeric))
+#cor(final_merge_full %>% select_if(is.numeric))
+cor(full_merge  %>% select_if(is.numeric))
+```
+
+Q1. Does simply being deemed as high risk on the soft tissue watch list predict HSI incidence?
+## Validation
+```{r}
+#Stepwise validation 
+table(final_merge_full$Status,final_merge_full$HSI)
+
+#confusion matrix 
 ```
 
 
+Q2. How do components of the watch list predict HSI? subsequent//following HSI injury risk?
 ## Modeling & Evaluations 
+```{r}
+library(MASS)
+#order watch list category 
+final_merge_full$Status <- factor(final_merge_full$Status,ordered=TRUE,levels=c("routine","low","medium", "high"))
+
+ordinal_model <- polr(Status~HSI, data=final_merge_full, method="logistic")
+summary(ordinal_model)
+```
+
+```{r}
+#variable selection methods + model building 
+#fit null model for risk status on watch list
+null_model_watchlist <- lm(Status~NULL, data=final_merge_full)
+summary(null_model_watchlist)
+
+#fit null model for HSI
+null_model_HSI <- lm(HSI~NULL, data=final_merge_full)
+summary(null_model_HSI)
+
+#fit null model for subsequent HSI injury 
+#null_model_HSIx2 <- lm(HSI~NULL, data=final_merge_full)
+#summary(null_model_HSIx2)
+```
+```{r}
+final_merge_full$anon_id <- as.factor(final_merge_full$anon_id)
+final_merge_full$Status <- as.factor(final_merge_full$Status)
+final_merge_full$Group <- as.factor(final_merge_full$Group)
+final_merge_full$Body.Part <- as.factor(final_merge_full$Body.Part)
+final_merge_full$Position <- as.factor(final_merge_full$Position)
+final_merge_full$OSICS14.Code <- as.factor(final_merge_full$OSICS14.Code)
+final_merge_full$HSI <- as.factor(final_merge_full$HSI)
+```
+
+```{r}
+table(final_merge_full$HSI)
+```
+Highly unbalanced dataset for predction methods of HSI.
+```{r}
+#upsample to even out classes of HSI more 
+library(dplyr)
+#separate the classes
+majority <- final_merge_full %>% filter(HSI == 0)
+minority <- final_merge_full %>% filter(HSI == 1)
+
+#sample from majority to match minority
+set.seed(22)
+majority_down <- majority %>% sample_n(nrow(minority) * 5)  #ratio
+balanced_data <- bind_rows(minority, majority_down)
+
+#fit full logistic model
+model <- glm(HSI~., data=balanced_data, family="binomial")
+summary(model)
+
+model_risk2 <- Status~,
+```
+
+```{r}
+model2 <- glm(HSI~Positional.Norm+Maximum.Velocity+Maximum.Force+ Explosive.Efforts +Modified.RSI+Nordic.Imbalance.., data=final_merge_full, family="binomial")
+summary(model2)
+
+#model3 <- glm(HSI~.-Status-Body.Part-Position-OSICS14.Code, data=final_merge_full, family="binomial")
+summary(model2)
+
+#model_risk2 <- glm(Status~., data=final_merge_full, family="binomial")
+```
+
+
+
+
+
+```{r}
+#lasso method 
+
+#nonlinear model attempt as data is known to be nonlinear // Random Forests 
+library(randomForest)
+rf<- randomForest(as.factor(HSI)~., data=final_merge_full)
+varlmpPlot(rf)
+```
+
+
+
+```{r}
+#track specific athletes through injury + recovery) ex: anon_id[220,83]
+
+#high vs routine risk vs actual injury 
+```
+
 
 
 ##Threshold Optimzation 
