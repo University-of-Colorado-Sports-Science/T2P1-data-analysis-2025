@@ -28,6 +28,7 @@ riskstatus <- read_csv('data-sets/data-sets-uncompressed/Soft Tissue Risk Status
 strengthtest <- read_csv('data-sets/data-sets-uncompressed/Strength Testing Data FB.csv')
 VALD <- read_csv('data-sets/data-sets-uncompressed/VALD - Performance Test FB.csv')
 wellness <- read_csv('data-sets/data-sets-uncompressed/Wellness Report FB.csv')
+positional <- read_csv('data-sets/data-sets-uncompressed/Positional Performance Normative.csv')
 ```
 
 
@@ -195,8 +196,19 @@ strgth_merge <- strengthtest %>%
 #selecting variables of interest
 Vald <- subset(VALD, select = c("anon_id", "Session.Date", "Sport.Position", "Trend", "Maximum.Force", "Percent.Difference.Norm", "Nordic.Left.MAX", "Nordic.Right.MAX", "Nordic.MEAN.Imbalance.with.side", "Positional.Norm", "Nordic...Difference.from.First.Test", "Nordic.Left.Z.Score", "Nordic.Right.Z.Score", "Month", "Year"))
 
+Vald <- VALD %>%
+  transmute(anon_id, Session.Date, Position = Sport.Position, Trend, Maximum.Force, Percent.Difference.Norm, Nordic.Left.MAX, Nordic.Right.MAX, Nordic.MEAN.Imbalance.with.side, Positional.Norm, Nordic...Difference.from.First.Test, Nordic.Left.Z.Score, Nordic.Right.Z.Score, Nordic.Season.Average.Left, Nordic.Season.Average.Right, Nordic.MEAN.Imbalance)
+
+positional2 <- positional %>%
+  transmute(Position, Nordic.Average.Norm = `Nordic Average`)
+
+Vald <- merge(Vald, positional2, by = c('Position'), all = TRUE) 
+
+Vald <- Vald %>%
+  mutate(Perc.Diff.Norm = ((Nordic.Season.Average.Left + Nordic.Season.Average.Right) / (2 * Nordic.Average.Norm) - 1) * 100)
+
 vald_merge <- Vald %>%
-  select(-c('Month', 'Year', 'Nordic.Left.Z.Score', 'Nordic.Right.Z.Score')) %>%
+  select(-c('Nordic.Left.Z.Score', 'Nordic.Right.Z.Score')) %>%
   mutate(Date = as.Date(Session.Date, format = '%m/%d/%Y')) %>%
   na.omit()
 ```
@@ -329,13 +341,14 @@ merge_vald <- merge_vald %>%
 merge_vald <- merge_vald %>%
   group_by(anon_id, Group) %>%
   summarise(Maximum.Force = mean(Maximum.Force, na.rm = TRUE),
-            Percent.Difference.Norm = mean(Percent.Difference.Norm, na.rm = TRUE),
+            Perc.Diff.Norm = mean(Perc.Diff.Norm, na.rm = TRUE),
             Trend = mean(Trend, na.rm = TRUE),
             Nordic.Left.MAX = mean(Nordic.Left.MAX, na.rm = TRUE),
             Nordic.Right.MAX = mean(Nordic.Right.MAX, na.rm = TRUE),
             #Nordic.Left.Z.Score = mean(Nordic.Left.Z.Score, na.rm = TRUE),
             #Nordic.Right.Z.Score = mean(Nordic.Right.Z.Score, na.rm = TRUE),
             Nordic.MEAN.Imbalance.with.side = mean(Nordic.MEAN.Imbalance.with.side, na.rm = TRUE),
+            Nordic.Mean.Imbalance = mean(Nordic.MEAN.Imbalance, na.rm = TRUE),
             Positional.Norm = mean(Positional.Norm, na.rm = TRUE),
             Nordic...Difference.from.First.Test = mean(Nordic...Difference.from.First.Test, na.rm = TRUE), .groups = 'drop')
 ```
@@ -487,7 +500,30 @@ merge_strgth <- merge_strgth %>%
             Right.Hamstring.Quad.Percentage = mean(Right.Hamstring.Quad.Percentage, na.rm = TRUE), .groups = 'drop')
 ```
 
-9. Merging All Datasets Together
+9. Merging in All other Lower Body Injuries
+
+```{r}
+#trying to merge hamstring injuries with other lower body injuries
+merge_lower <- merge(HSI_last_injury, incident_lower, by = c('anon_id'), all = TRUE)
+
+merge_lower <- merge_lower %>%
+  mutate(Group = case_when(
+    is.na(Injury.1) | Date < Injury.1.Start ~ '0',
+    !is.na(Injury.1) & Date >= Injury.1.Start & Date < Injury.1 ~ '1',
+    !is.na(Injury.2) & Date >= Injury.2.Start & Date < Injury.2 ~ '2',
+    !is.na(Injury.3) & Date >= Injury.3.Start & Date < Injury.3 ~ '3',
+    !is.na(Injury.4) & Date >= Injury.4.Start & Date < Injury.4 ~ '4',
+    TRUE ~ 'After'),
+    Prev.HSI = ifelse(OSICS14.Code %in% c('TM1', 'TMB', 'TMS', 'TR1'), 1, 0)) %>%
+  filter(Group != 'After')
+
+merge_lower <- merge_lower %>%
+  group_by(anon_id, Group) %>%
+  summarise(Final.Diagnosis = paste0(Final.Diagnosis, collapse = " and "),
+            Prev.HSI = sum(Prev.HSI, na.rm = TRUE))
+```
+
+10. Merging All Datasets Together
 
 ```{r}
 final_merge_full <- merge(merge_incid, merge_risk, by = c('anon_id', 'Group'), all = TRUE)
@@ -520,6 +556,17 @@ final_merge <- final_merge_full %>%
 ```
 
 ```{r}
+ggplot(data = final_merge, aes(x = IMA.Accel.Total, y = HSI)) +
+  geom_boxplot()
+```
+
+Decent:
+Explosive.Efforts, IMA.Accel.Total, High.Speed.Distance
+
+Eh:
+Max.Acceleration, Max Deceleration
+
+```{r}
 table(final_merge$HSI, final_merge$Status)
 ```
 
@@ -528,6 +575,105 @@ model_status <- glm(HSI ~ Status, data = final_merge, family = 'binomial')
 
 summary(model_status)
 ```
+
+
+# Dashboard Recreation (Question 2)
+
+
+```{r}
+#merges the incident report and risk status by group (period of time) and player id
+dash <- merge(merge_incid, merge_risk, by = c('anon_id', 'Group'), all = TRUE)
+
+#merges the vald dataset by the same columns
+dash <- merge(dash, merge_vald, by = c('anon_id', 'Group'), all = TRUE)
+
+#merges the lower body injuries and a column for if a different HSI occurred (same leg or different leg) before the possible injury
+dash <- merge(dash, merge_lower, by = c('anon_id', 'Group'), all = TRUE)
+
+#fills in most of the NAs with character stings and converts HSI to a binary indicator variable. Also selects just the variables within the soft tissue watch list as well as the previous HSI variable
+dash <- dash %>%
+  mutate(Group = ifelse(is.na(Group), 0, Group),
+         Mechanism = ifelse(is.na(Mechanism), 'None', Mechanism),
+         Prev.Injuries = ifelse(is.na(Final.Diagnosis), 'None', Final.Diagnosis),
+         Time.Injured = ifelse(is.na(Time.Injured), 0, Time.Injured),
+         OSICS14.Code = ifelse(is.na(OSICS14.Code), 'None', OSICS14.Code),
+         HSI = as.factor(ifelse(Group > 0, 1, 0)),
+         Prev.HSI = ifelse(is.na(Prev.HSI), 0, Prev.HSI),
+         Status = as.factor(ifelse(is.na(Status), 'None', Status))) %>%
+  select(anon_id, Prev.Injuries, Prev.HSI, Perc.Diff.Norm, Nordic.Mean.Imbalance, Trend, Status, HSI) %>%
+  mutate(Prev.Injury.Num = ifelse(Prev.Injuries == 'None', 0, sapply(strsplit(Prev.Injuries, " and "), length)))
+
+#recreating the dataset without NAs for visualizations, should contain 178 observations
+dash_final <- dash %>%
+  na.omit()
+
+#filtering for just the high risk evaluations
+dash_high <- dash_final %>%
+  filter(Status == 'High')
+```
+
+```{r}
+#creates a boxplot comparing number of previous lower body injuries in those that experienced HSI versus those that didn't
+ggplot(data = dash_final, aes(x = Prev.Injury.Num, y = HSI)) + 
+  geom_boxplot(color = 'black', fill = 'royalblue') + 
+  labs(title = 'Distribution of Previous HSI vs Future HSI Occurence',
+       y = 'Observations',
+       x = 'Number of Previous HSI') +
+  theme_bw()
+```
+
+This plot is completely biased by the fact that observations are only in there if the player sufferred HSI. 
+
+```{r}
+#creates a boxplot comparing perfentage difference from normal strength level in those that experienced HSI versus those that didn't
+ggplot(data = dash_final, aes(x = Perc.Diff.Norm, y = HSI)) + 
+  geom_boxplot(color = 'black', fill = 'royalblue') + 
+  labs(title = 'Distribution of Percentage Difference from Norm vs Future HSI Occurence',
+       y = 'HSI Occurence',
+       x = 'Percentage Difference from Norm') +
+  theme_bw()
+```
+
+The median percent difference from norm for those who suffered HSI is less than the median percent difference from norm for those that did not suffer HSI. At least 75 % of the observations that suffered HSI were below the norm for strength
+
+```{r}
+#creates a boxplot comparing average nordic imbalance between legs in those that experienced HSI versus those that didn't
+ggplot(data = dash_final, aes(x = Nordic.Mean.Imbalance, y = HSI)) + 
+  geom_boxplot(color = 'black', fill = 'royalblue') + 
+  labs(title = 'Distribution of Mean Imbalance vs Future HSI Occurence',
+       y = 'HSI Occurence',
+       x = 'Nordic Mean Imbalance Between Legs') +
+  theme_bw()
+```
+
+The median for average imbalance from those who experienced HSI is slightly higher than those that did not suffer HSI and has a greater IQR. 
+
+```{r}
+#creates a boxplot comparing overall strength trend in those that experienced HSI versus those that didn't
+ggplot(data = dash_final, aes(x = Trend, y = HSI)) + 
+  geom_boxplot(color = 'black', fill = 'royalblue') + 
+  labs(title = 'Distribution of Strength Trend vs Future HSI Occurence',
+       y = 'HSI Occurence',
+       x = 'Strength Trend') +
+  theme_bw()
+```
+
+The trend is very commonly 0, or neutral in those that experienced HSI with only outliers being above or below 0 which is very strange. Most of the observations that did not experience HSI are 0 or greater than 0.
+
+```{r}
+#table displaying frequencies of HSI within the statuses
+table(dash_final$HSI, dash_final$Status)
+```
+
+```{r}
+#creates a model predicting HSI occurence from the variables in the dashboard
+model <- glm(HSI ~ Prev.HSI + Perc.Diff.Norm + Nordic.Mean.Imbalance + Trend, 
+             data = dash_final, family = 'binomial')
+
+summary(model)
+```
+
+Previous hamstring related injury is a good predictor, also mentioned in literature review I beleive. Of the 57 players that experienced HSI in this dataset, 20 of those injuries came after a previous hamstring related injury. This means in the data provided, around 35.09% of the HSI came following a hamstring related injury (same or different leg).
 
 
 ## 3 Months Prior Emphasis from Blake
@@ -632,7 +778,7 @@ ggplot(filtered_merge, aes(x = Nordic...Difference.from.First.Test, y = HSI)) +
 ```
 
 
-# Validating the Soft-Tissue Watchlist
+# Validating the Soft-Tissue Watchlist (Question 1)
 
 
 1. Players Deemed High Risk
