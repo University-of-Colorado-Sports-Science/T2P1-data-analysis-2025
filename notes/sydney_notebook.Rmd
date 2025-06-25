@@ -10,7 +10,7 @@ date: "2025-06-16"
 #Author Date: 06/09/2025
 #Purpose: The purpose of this notebook is to house all data set transformation, cleansing, visualization, statistical analysis, and note-taking for the 2025 CU Athletic Department Sports Science Internship Program
 
-#LAST UPDATED: 06/18/2025
+#LAST UPDATED: 06/25/2025
 library(tidyverse)
 library(readxl)
 library(aod)
@@ -91,10 +91,6 @@ ggplot(Acwr_HSI, aes(Acceleration.Load.EWMA.ACWR)) +
 
 ## 2. Catapult 
 ```{r}
-catapult <- read.csv("~/T2P1-data-analysis-2025/data-sets/Catapult Session - Outdoor FB.csv")
-```
-
-```{r}
 #refined catapult session outdoor dataset
 catapult <- catapult %>%
 filter(Sport=="FOOTBALL")
@@ -164,10 +160,6 @@ mean(catapult$Average.Velocity,na.rm=TRUE)
 ```
 
 ## 3. Incident 
-```{r}
-incident <- read.csv("~/T2P1-data-analysis-2025/data-sets/Incident Report FB.csv")
-```
-
 ```{r}
 #sort out any non football values + etc
 incident <- incident %>%
@@ -239,11 +231,6 @@ perfnorm_merge <- filtered_perfnorm %>%
   #group_by(anon_id, Date) %>%
   mutate(Date = as.Date(Date, format = '%m/%d/%Y')) %>%
   na.omit()
- 
-
-#can compare to NFL + NBA aswell
-min(filtered_perfnorm$Date,na.rm=TRUE)
-max(filtered_perfnorm$Date,na.rm=TRUE)
 ```
 
 ## 5. Performance Risk Assessment 
@@ -262,10 +249,6 @@ filtered_perfrisk <- filtered_perfrisk %>%
 ```
 
 ## 6. Soft Tissue Risk Status
-```{r}
-riskstatus <- read.csv("~/T2P1-data-analysis-2025/data-sets/Soft Tissue Risk Status Report FB.csv")
-```
-
 ```{r}
 #refined risk status dataset
 #contains variable, what we are comparing against// validating 
@@ -287,8 +270,8 @@ riskstatus$Highrisk_binary = Highrisk_binary
 risk_merge <- riskstatus %>%
   mutate(Date = as.Date(Date, format = '%m/%d/%Y'))
 
-min(riskstatus$Date,na.rm=TRUE)
-max(riskstatus$Date,na.rm=TRUE)
+#min(riskstatus$Date,na.rm=TRUE)
+#max(riskstatus$Date,na.rm=TRUE)
 ```
 
 ## Soft-Tissue Watchlist Risk Status (future validation)
@@ -308,11 +291,6 @@ high_risk <- unique(Riskstatus_high$anon_id)
 
 ## 7. Stength Test
 ```{r}
-#not expected to use this dataset alot + no real need to filter atm 
-strengthtest <- read.csv("~/T2P1-data-analysis-2025/data-sets/Strength Testing Data FB.csv")
-```
-
-```{r}
 #cut back to last year
 strengthtest$Date <- mdy(strengthtest$Date)
 current_date <- Sys.Date()
@@ -326,9 +304,8 @@ strgth_merge <- strengthtest %>%
   mutate(Date = as.Date(Date, format = '%m/%d/%Y')) %>%
   na.omit()
 
-
-min(strengthtest$Date,na.rm=TRUE)
-max(strengthtest$Date,na.rm=TRUE)
+#min(strengthtest$Date,na.rm=TRUE)
+#max(strengthtest$Date,na.rm=TRUE)
 ```
 
 ## 8. VALD Performance Test 
@@ -374,10 +351,6 @@ filtered_VALD <- filtered_VALD %>%
 
 ## 9. Wellness
 ```{r}
-wellness <- read.csv("~/T2P1-data-analysis-2025/data-sets/Wellness Report FB.csv")
-```
-
-```{r}
 wellness <- wellness %>%
   filter(Sport=="FOOTBALL")
 
@@ -406,8 +379,8 @@ filtered_wellness <- filtered_wellness %>%
   #mutate(Date = as.Date(Date, format = '%m/%d/%Y')) %>%
   na.omit()
 
-min(filtered_wellness$Date,na.rm=TRUE)
-max(filtered_wellness$Date,na.rm=TRUE)
+#min(filtered_wellness$Date,na.rm=TRUE)
+#max(filtered_wellness$Date,na.rm=TRUE)
 ```
 
 
@@ -437,8 +410,6 @@ HSI_last_injury <- incident_HSI %>%
   separate(Recurrence, c('Injury.1.Recur', 'Injury.2.Recur', 'Injury.3.Recur', 'Injury.4.Recur'), sep = ' and ') %>%
   separate(Time.Injured, c('Injury.1.Time', 'Injury.2.Time', 'Injury.3.Time', 'Injury.4.Time'), sep = ' and ')
 ```
-
-
 ```{r}
 #trying to merge hamstring injuries with other lower body injuries
 merge_incid <- merge(HSI_last_injury, incident_HSI, by = c('anon_id','Body.Part'), all = TRUE)
@@ -484,6 +455,14 @@ merge_well <- merge_well %>%
             Soreness.Score = mean(Soreness.Score),
             Overall.Wellness.Score = mean(Overall.Wellness.Score))
 ```
+```{r}
+#function for mode
+get_mode <- function(v) {
+  uniqv <- unique(v)
+  uniqv[which.max(tabulate(match(v, uniqv)))]
+}
+```
+
 3. Merging VALD
 ```{r}
 merge_vald <- merge(HSI_last_injury, vald_merge, by = c('anon_id'), all = TRUE)
@@ -666,7 +645,7 @@ final_merge_full <- merge(final_merge_full, merge_position, by=c('anon_id','Grou
 ```{r}
 #add binary to determine if incident is HSI or not 
 final_merge_full$HSI <- ifelse(final_merge_full$OSICS14.Code %in% c("TMI","TMB","TMS"),1,0)
-#1512 observations and 58 variables 
+#1500 observations and 58 variables 
 ```
 
 ## 3 Months Prior Emphasis from Blake
@@ -727,17 +706,19 @@ merge_lower <- merge_lower %>%
 ```
 ```{r}
 full_merge <- merge(merge_lower, merge_vald, by = c('anon_id', 'Group'), all = TRUE)
+full3_merge <- merge(full_merge, merge_risk, by = c('anon_id', 'Group'), all = TRUE)
 
-filtered_full3_merge <- full_merge %>%
+filter_full3_merge <- full3_merge %>%
+  #summarise(Status= Status) %>%
   mutate(Group = ifelse(is.na(Group), 0, Group),
-         Trend= get_mode(Trend),
+         #Trend= get_mode(Trend),
          Mechanism = ifelse(is.na(Mechanism), 'None', Mechanism),
          Recurrence = ifelse(is.na(Recurrence), 'None', Recurrence),
          Time.Injured = ifelse(is.na(Time.Injured), 0, Time.Injured),
          OSICS14.Code = ifelse(is.na(OSICS14.Code), 'None', OSICS14.Code),
          HSI = ifelse(Group > 0, 1, 0)) %>%
-  select(-Group) %>%
-  na.omit()
+  dplyr::select(-Group) %>%
+  na.omit()    #44 0bs. & 17 variables 
 ```
 
 ## Exploratory Analysis: descriptive stats + plots
@@ -1236,16 +1217,73 @@ Player ID_111 injured his left hamstring less than a month after the test and ri
 ## Correlation Tests
 ```{r}
 #cor(final_merge_full %>% select_if(is.numeric))
-cor(full_merge  %>% select_if(is.numeric))
+cor(filter_full3_merge  %>% select_if(is.numeric))
+```
+HSI and Injuries in the last 3 months correlation factor of (-.90).
+Nordic.MEAN.Imbalance.with.side and Injuries in the last 3 months correlation factor of (-.876).
+```{r}
+library(caret)
+library(pROC)
+library(lme4)
+library(survival)
+library(rpart)
+library(glmnet)
 ```
 
 Q1. Does simply being deemed as high risk on the soft tissue watch list predict HSI incidence?
 ## Validation
 ```{r}
 #Stepwise validation 
-table(final_merge_full$Status,final_merge_full$HSI)
+table(filter_full3_merge$Status,filter_full3_merge$HSI)
+```
 
-#confusion matrix 
+```{r}
+#ordinal variable 
+filter_full3_merge$Status <- factor(
+  filter_full3_merge$Status,
+  levels = c("Routine", "Low", "Medium", "High"),
+  ordered = TRUE
+)
+
+#logistic regression
+model_q1 <- glm(HSI~Status, data=filter_full3_merge, family="binomial")
+summary(model_q1)
+exp(coef(model_q1))   #ODDS RATIO
+```
+```{r}
+library(caret)
+#model evaluation
+filter_full3_merge$pred_prob_q1 <- predict(model_q1,type="response")
+filter_full3_merge$pred_class_q1 <- ifelse(filter_full3_merge$pred_prob_q1>0.5,1,0) #class w/ 0.5 threshold
+
+#convert both predicted + actual to factors w/ the same levels
+pred <- factor(filter_full3_merge$pred_class_q1, levels = c(0, 1))
+actual <- factor(filter_full3_merge$HSI, levels = c(0, 1))
+
+#confusion matrix
+confusionMatrix(pred, actual)
+```
+```{r}
+library(pROC)
+#ROC CURVE
+roc_obj <- roc(filter_full3_merge$HSI, filter_full3_merge$pred_prob_q1)
+plot(roc_obj, main="ROC Curve", col="pink",lwd=3)
+auc(roc_obj)
+```
+
+NOTE: HSI events are more rare causing a class in balance (majority class== no injury), can lead to misleading data
+```{r}
+#upsample minority class 
+set.seed(22)
+balanced <- upSample(x=filter_full3_merge %>% dplyr::select(Status), 
+         y= as.factor(filter_full3_merge$HSI))
+
+model_bal <- glm(Class~ Status, data=balanced, family="binomial")
+summary(model_bal)
+
+#ordinal logistic rregress. // treat outcome as predict risk status (reverse logic)
+model_ord <- polr(Status~HSI, data=filter_full3_merge, method="logistic")
+summary(model_ord)
 ```
 
 
@@ -1253,13 +1291,55 @@ Q2. How do components of the watch list predict HSI? subsequent//following HSI i
 ## Modeling & Evaluations 
 ```{r}
 library(MASS)
-#order watch list category 
-final_merge_full$Status <- factor(final_merge_full$Status,ordered=TRUE,levels=c("routine","low","medium", "high"))
-
-ordinal_model <- polr(Status~HSI, data=final_merge_full, method="logistic")
-summary(ordinal_model)
+library(randomForest)
+library(DMwR2)  #for SMOTE
+library(xgboost)
 ```
 
+```{r}
+##DELTE PROBABLY 
+#order watch list category 
+final_merge_full$Status <- factor(final_merge_full$Status,ordered=TRUE,levels=c("routine","low","medium", "high"))
+```
+
+```{r}
+#calculate averages to base risk flags off of 
+mean(filter_full3_merge$Nordic.MEAN.Imbalance.with.side)
+mean(filter_full3_merge$Percent.Difference.Norm)
+
+#convert from character to numeric
+filter_full3_merge$Time.Injured <- as.numeric(filter_full3_merge$Time.Injured)
+mean(filter_full3_merge$Time.Injured)
+```
+
+```{r}
+#BINARY FLAGS FOR RISK
+filter_full3_merge <- filter_full3_merge %>%
+  mutate(nordic_imbalance_flag= if_else(Nordic.MEAN.Imbalance.with.side>1.28,1,0),
+         difference_norm_flag= if_else(Percent.Difference.Norm>-5.93,1,0),
+         time_injured_flag= if_else(Time.Injured> 13.25,1,0),
+         nordic_z_self= scale(Maximum.Force))
+```
+
+Using SMOTE Sampling for ClasS Imbalance Issues
+##NEED TO FIGURE OUT HOW THIS WORKS
+```{r}
+library(smotefamily)
+filter_full3_merge$HSI <- as.factor(filter_full3_merge$HSI)
+
+#application of SMOTE to balance classes 
+balanced_data <- SMOTE(filter_full3_merge[,-16],filter_full3_merge[16],k=2, dup_size = 0)
+table(balanced_data$HSI)
+```
+
+```{r}
+#training and testing 
+train_idx <- createDataPartition(balanced_data$HSI, p=.80, list=FALSE)
+train <- balanced_data[train_idx,]
+test <- balanced_data[-train_idx,]
+```
+
+##NULL MODELS
 ```{r}
 #variable selection methods + model building 
 #fit null model for risk status on watch list
@@ -1267,14 +1347,18 @@ null_model_watchlist <- lm(Status~NULL, data=final_merge_full)
 summary(null_model_watchlist)
 
 #fit null model for HSI
-null_model_HSI <- lm(HSI~NULL, data=final_merge_full)
+null_model_HSI <- lm(HSI~NULL, data=filtered_full3_merge)
 summary(null_model_HSI)
 
+#NEED to turn recurrence words into # groups 
+
 #fit null model for subsequent HSI injury 
-#null_model_HSIx2 <- lm(HSI~NULL, data=final_merge_full)
-#summary(null_model_HSIx2)
+null_model_recurrence <- lm(Recurrence~NULL, data=filtered_full3_merge)
+summary(null_model_recurrence )
 ```
+
 ```{r}
+#convert all categorical variables to factors 
 final_merge_full$anon_id <- as.factor(final_merge_full$anon_id)
 final_merge_full$Status <- as.factor(final_merge_full$Status)
 final_merge_full$Group <- as.factor(final_merge_full$Group)
@@ -1284,52 +1368,45 @@ final_merge_full$OSICS14.Code <- as.factor(final_merge_full$OSICS14.Code)
 final_merge_full$HSI <- as.factor(final_merge_full$HSI)
 ```
 
-```{r}
-table(final_merge_full$HSI)
-```
+
 Highly unbalanced dataset for predction methods of HSI.
 ```{r}
 #upsample to even out classes of HSI more 
 library(dplyr)
 #separate the classes
-majority <- final_merge_full %>% filter(HSI == 0)
-minority <- final_merge_full %>% filter(HSI == 1)
+majority <- filtered_full3_merge %>% filter(HSI == 0)
+minority <- filtered_full3_merge %>% filter(HSI == 1)
 
 #sample from majority to match minority
 set.seed(22)
-majority_down <- majority %>% sample_n(nrow(minority) * 5)  #ratio
+majority_down <- majority %>% sample_n(nrow(minority) * 2)  #ratio
 balanced_data <- bind_rows(minority, majority_down)
-
-#fit full logistic model
-model <- glm(HSI~., data=balanced_data, family="binomial")
-summary(model)
-
-model_risk2 <- Status~,
 ```
 
+##Basic Models 
 ```{r}
-model2 <- glm(HSI~Positional.Norm+Maximum.Velocity+Maximum.Force+ Explosive.Efforts +Modified.RSI+Nordic.Imbalance.., data=final_merge_full, family="binomial")
-summary(model2)
+larger_model2 <- glm(HSI~Positional.Norm+Maximum.Velocity+Maximum.Force+ Explosive.Efforts +Modified.RSI+Nordic.Imbalance.., data=final_merge_full, family="binomial")
+summary(larger_model2)
 
+smaller_model2 <- glm(HSI~Maximum.Force+Percent.Difference.Norm+ Nordic...Difference.from.First.Test, data=filtered_full3_merge, family="binomial")
+summary(smaller_model2)
 #model3 <- glm(HSI~.-Status-Body.Part-Position-OSICS14.Code, data=final_merge_full, family="binomial")
-summary(model2)
+#summary(model3)
 
 #model_risk2 <- glm(Status~., data=final_merge_full, family="binomial")
 ```
 
-
-
-
-
+##LASSO  Method
 ```{r}
-#lasso method 
 
-#nonlinear model attempt as data is known to be nonlinear // Random Forests 
+```
+
+##NONLINEAR METHODS- Random Forests 
+```{r}
 library(randomForest)
 rf<- randomForest(as.factor(HSI)~., data=final_merge_full)
 varlmpPlot(rf)
 ```
-
 
 
 ```{r}
