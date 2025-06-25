@@ -1270,7 +1270,9 @@ roc_obj <- roc(filter_full3_merge$HSI, filter_full3_merge$pred_prob_q1)
 plot(roc_obj, main="ROC Curve", col="pink",lwd=3)
 auc(roc_obj)
 ```
-##Dealing w/ Class Imbalances
+Q2. How do components of the watch list predict HSI? subsequent//following HSI injury risk?
+## Modeling & Evaluations
+-Dealing w/ Class Imbalances
 ```{r}
 #demonstration of class imbalance that needs to be addressed 
 table(filter_full3_merge$HSI)
@@ -1364,45 +1366,40 @@ confusionMatrix(pred_class,test$Class)
 ```
 
 
-
-
-Q2. How do components of the watch list predict HSI? subsequent//following HSI injury risk?
-## Modeling & Evaluations 
 ```{r}
 library(MASS)
 library(randomForest)
-library(DMwR2)  #for SMOTE// not neded anymore
 library(xgboost)
 ```
 
-
 ##NULL MODELS
 ```{r}
-#variable selection methods + model building 
+##DO I USE train, train_up or rose_train for these
 #fit null model for risk status on watch list
-null_model_watchlist <- lm(Status~NULL, data=final_merge_full)
+null_model_watchlist <- lm(Status~NULL, data=train)
 summary(null_model_watchlist)
 
 #fit null model for HSI
-null_model_HSI <- lm(HSI~NULL, data=filtered_full3_merge)
+null_model_HSI <- lm(HSI~NULL, data=train)
 summary(null_model_HSI)
 
-#NEED to turn recurrence words into # groups 
+#NEED to turn recurrence words into # groups (First Recurrence, New Injury/Illness, None)
+#None=0, New Injury/Illness=1, First Recurrence=2
 
 #fit null model for subsequent HSI injury 
-null_model_recurrence <- lm(Recurrence~NULL, data=filtered_full3_merge)
+null_model_recurrence <- lm(Recurrence~NULL, data=train)
 summary(null_model_recurrence )
 ```
 
 ```{r}
 #convert all categorical variables to factors 
-final_merge_full$anon_id <- as.factor(final_merge_full$anon_id)
-final_merge_full$Status <- as.factor(final_merge_full$Status)
-final_merge_full$Group <- as.factor(final_merge_full$Group)
-final_merge_full$Body.Part <- as.factor(final_merge_full$Body.Part)
-final_merge_full$Position <- as.factor(final_merge_full$Position)
-final_merge_full$OSICS14.Code <- as.factor(final_merge_full$OSICS14.Code)
-final_merge_full$HSI <- as.factor(final_merge_full$HSI)
+filter_full3_merge$anon_id <- as.factor(final_merge_full$anon_id)
+filter_full3_merge$Status <- as.factor(final_merge_full$Status)
+#final_merge_full$Group <- as.factor(final_merge_full$Group)
+#final_merge_full$Body.Part <- as.factor(final_merge_full$Body.Part)
+#final_merge_full$Position <- as.factor(final_merge_full$Position)
+#final_merge_full$OSICS14.Code <- as.factor(final_merge_full$OSICS14.Code)
+filter_full3_merge$HSI <- as.factor(final_merge_full$HSI)
 ```
 
 
