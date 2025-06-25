@@ -1270,38 +1270,13 @@ roc_obj <- roc(filter_full3_merge$HSI, filter_full3_merge$pred_prob_q1)
 plot(roc_obj, main="ROC Curve", col="pink",lwd=3)
 auc(roc_obj)
 ```
-
+##Dealing w/ Class Imbalances
+```{r}
+#demonstration of class imbalance that needs to be addressed 
+table(filter_full3_merge$HSI)
+prop.table(table(filter_full3_merge$HSI))
+```
 NOTE: HSI events are more rare causing a class in balance (majority class== no injury), can lead to misleading data
-```{r}
-#upsample minority class 
-set.seed(22)
-balanced <- upSample(x=filter_full3_merge %>% dplyr::select(Status), 
-         y= as.factor(filter_full3_merge$HSI))
-
-model_bal <- glm(Class~ Status, data=balanced, family="binomial")
-summary(model_bal)
-
-#ordinal logistic rregress. // treat outcome as predict risk status (reverse logic)
-model_ord <- polr(Status~HSI, data=filter_full3_merge, method="logistic")
-summary(model_ord)
-```
-
-
-Q2. How do components of the watch list predict HSI? subsequent//following HSI injury risk?
-## Modeling & Evaluations 
-```{r}
-library(MASS)
-library(randomForest)
-library(DMwR2)  #for SMOTE
-library(xgboost)
-```
-
-```{r}
-##DELTE PROBABLY 
-#order watch list category 
-final_merge_full$Status <- factor(final_merge_full$Status,ordered=TRUE,levels=c("routine","low","medium", "high"))
-```
-
 ```{r}
 #calculate averages to base risk flags off of 
 mean(filter_full3_merge$Nordic.MEAN.Imbalance.with.side)
@@ -1315,29 +1290,91 @@ mean(filter_full3_merge$Time.Injured)
 ```{r}
 #BINARY FLAGS FOR RISK
 filter_full3_merge <- filter_full3_merge %>%
+ # group_by(anon_id) %>%
+ # mutate(maxforce_z_self= scale(Maximum.Force)) %>%
+     #   ungroup() %>%
   mutate(nordic_imbalance_flag= if_else(Nordic.MEAN.Imbalance.with.side>1.28,1,0),
          difference_norm_flag= if_else(Percent.Difference.Norm>-5.93,1,0),
-         time_injured_flag= if_else(Time.Injured> 13.25,1,0),
-         nordic_z_self= scale(Maximum.Force))
+         time_injured_flag= if_else(Time.Injured> 13.25,1,0))
 ```
 
-Using SMOTE Sampling for ClasS Imbalance Issues
-##NEED TO FIGURE OUT HOW THIS WORKS
 ```{r}
-library(smotefamily)
 filter_full3_merge$HSI <- as.factor(filter_full3_merge$HSI)
 
-#application of SMOTE to balance classes 
-balanced_data <- SMOTE(filter_full3_merge[,-16],filter_full3_merge[16],k=2, dup_size = 0)
-table(balanced_data$HSI)
+set.seed(22)
+#training and testing
+train_idx <- createDataPartition(filter_full3_merge$HSI, p=.80, list=FALSE)
+train <- filter_full3_merge[train_idx,]
+test <- filter_full3_merge[-train_idx,]
+
+#upsample minority class 
+train_up <- upSample(x=train %>% dplyr::select(-HSI), 
+         y= as.factor(train$HSI))
+#check balance 
+table(train_up$Class)
+```
+```{r}
+table(train$HSI)
+levels(train$HSI)
 ```
 
 ```{r}
-#training and testing 
-train_idx <- createDataPartition(balanced_data$HSI, p=.80, list=FALSE)
-train <- balanced_data[train_idx,]
-test <- balanced_data[-train_idx,]
+library(ROSE)
+set.seed(22)
+#ROSE sampling (randomized oversampling examples)
+rose_train <- ROSE(HSI~Maximum.Force+Nordic.MEAN.Imbalance.with.side+nordic_imbalance_flag+difference_norm_flag+time_injured_flag, data= train, seed=1)$data 
+
+#check results 
+table(rose_train$HSI)
 ```
+
+```{r}
+#cross validation
+ctrl <- trainControl(method="cv", number=8, classProbs=TRUE,summaryFunction = twoClassSummary)
+
+#convert to character labels
+rose_train$Class <- factor(rose_train$HSI, levels= c(1,0), labels=c("Yes","No"))
+test$Class <- factor(test$HSI, levels= c(1,0), labels=c("Yes","No"))
+
+levels(rose_train$Class)
+# Should return: [1] "No" "Yes"
+typeof(rose_train$Class)
+```
+
+```{r}
+set.seed(22)
+#ROSE model
+rose_model <- train(Class~Maximum.Force+Nordic.MEAN.Imbalance.with.side+nordic_imbalance_flag+difference_norm_flag+time_injured_flag, data=rose_train, method="glm", family="binomial", trControl= ctrl, metric="ROC")
+
+rose_model
+```
+
+```{r}
+#predict probabilities 
+pred_probs <- predict(rose_model, newdata=test, type="prob")
+
+#ROC + AUC
+roc_obj2 <- roc(test$HSI, pred_probs$Yes)
+auc(roc_obj2)
+plot(roc_obj2, main="ROC Curve- ROSE Logistic Model")
+
+#confusion matrix
+pred_class <- predict(rose_model, newdata=test)
+confusionMatrix(pred_class,test$Class)
+```
+
+
+
+
+Q2. How do components of the watch list predict HSI? subsequent//following HSI injury risk?
+## Modeling & Evaluations 
+```{r}
+library(MASS)
+library(randomForest)
+library(DMwR2)  #for SMOTE// not neded anymore
+library(xgboost)
+```
+
 
 ##NULL MODELS
 ```{r}
@@ -1368,20 +1405,6 @@ final_merge_full$OSICS14.Code <- as.factor(final_merge_full$OSICS14.Code)
 final_merge_full$HSI <- as.factor(final_merge_full$HSI)
 ```
 
-
-Highly unbalanced dataset for predction methods of HSI.
-```{r}
-#upsample to even out classes of HSI more 
-library(dplyr)
-#separate the classes
-majority <- filtered_full3_merge %>% filter(HSI == 0)
-minority <- filtered_full3_merge %>% filter(HSI == 1)
-
-#sample from majority to match minority
-set.seed(22)
-majority_down <- majority %>% sample_n(nrow(minority) * 2)  #ratio
-balanced_data <- bind_rows(minority, majority_down)
-```
 
 ##Basic Models 
 ```{r}
