@@ -20,6 +20,14 @@ library(tidyr)
 library(dplyr)
 library(ggplot2)
 library(MASS)
+library(caret)
+library(pROC)
+library(ROSE)
+library(randomForest)
+library(xgboost)
+library(smotefamily)
+library(glmnet)
+library(ROCR)
 ```
 
 
@@ -46,11 +54,11 @@ positional <- read_csv('data-sets/data-sets-uncompressed/Positional Performance 
 
 ```{r}
 #refined ACWR dataset 
-Acwr <- subset(ACWR,select=c("anon_id", "Date", "Position", "Total.Player.Load", "Acceleration.Load.EWMA.ACWR", "Acceleration.Load.ACWR", "Player.Load.ACWR", "Total.Distance.ACWR", "Month", "Year"))
+Acwr <- subset(ACWR, select=c("anon_id", "Date", "Position", "Total.Player.Load", "Acceleration.Load.EWMA.ACWR", "Acceleration.Load.ACWR", "Player.Load.ACWR", "Total.Distance.ACWR", "Month", "Year"))
 
 #getting rid of NA values for ease and the month and year column for the merge dataset as well as converting the date to a date object in r
 acwr_merge <- Acwr %>%
-  select(-c('Month', 'Year')) %>%
+  dplyr::select(-c('Month', 'Year')) %>%
   na.omit() %>%
   mutate(Date = as.Date(Date, format = '%m/%d/%Y'))
 ```
@@ -61,7 +69,7 @@ acwr_merge <- Acwr %>%
 
 ```{r}
 #refined catapult session outdoor dataset
-Catapult <- subset(catapult,select=c("anon_id", "Position", "Date", "High.Speed.Distance", "Very.High.Speed.Distance", "Maximum.Velocity", "Average.Velocity", "IMA.Accel.Low", "IMA.Decel.Low", "IMA.Accel.Medium", "IMA.Decel.Medium", "IMA.Accel.High", "IMA.Decel.High", "IMA.Accel.Total", "IMA.Decel.Total", "Explosive.Efforts", "Total.Player.Load", "Average.IMA", "Max.Acceleration", "Max.Deceleration"))
+Catapult <- subset(catapult, select=c("anon_id", "Position", "Date", "High.Speed.Distance", "Very.High.Speed.Distance", "Maximum.Velocity", "Average.Velocity", "IMA.Accel.Low", "IMA.Decel.Low", "IMA.Accel.Medium", "IMA.Decel.Medium", "IMA.Accel.High", "IMA.Decel.High", "IMA.Accel.Total", "IMA.Decel.Total", "Explosive.Efforts", "Total.Player.Load", "Average.IMA", "Max.Acceleration", "Max.Deceleration"))
 
 #creates a second dataset where date is in the right format and all variables of interest are summarized for each athlete on each day
 catapult_merge <- Catapult %>%
@@ -92,7 +100,7 @@ catapult_merge <- Catapult %>%
 
 ```{r}
 #selecting the variables of interest within the incident report and getting rid of two observations that represent a conflicting diagnosis for player ID_194 who had a left hamstring strain/tear and Left Semimembranosis/tendinosis strain (grade 1 - 2) on 6/5/2024
-Incident <- subset(incident,select=c("anon_id", "Position", "Date.of.Injury...Onset.of.symptoms", "Side", "Body.Part", "Tissue.Type", "Pathology.Type", "OSICS14.Code", "OSICS10.Code", "OSICS10.Diagnosis", "Final.Diagnosis", "Result.of.Sport.Participation", "Recurrence.of.Injury", "Injury.Prognosis", "General.Mechanism", "Specific.Mechanism", "FinalDiagnosisIncidentDate", "Total.Time.Injured", "Month", "Year"))[-c(1167,1168),]
+Incident <- subset(incident, select=c("anon_id", "Position", "Date.of.Injury...Onset.of.symptoms", "Side", "Body.Part", "Tissue.Type", "Pathology.Type", "OSICS14.Code", "OSICS10.Code", "OSICS10.Diagnosis", "Final.Diagnosis", "Result.of.Sport.Participation", "Recurrence.of.Injury", "Injury.Prognosis", "General.Mechanism", "Specific.Mechanism", "FinalDiagnosisIncidentDate", "Total.Time.Injured", "Month", "Year"))[-c(1167,1168),]
 ```
 
 ```{r, warning = FALSE}
@@ -109,11 +117,6 @@ incident_HSI <- Incident %>%
   ungroup() %>%
   group_by(across(everything())) %>%
   summarise(.groups = 'drop')
-
-c <- incident_HSI %>%
-  filter(Date >= as.Date('8/9/2024', format = '%m/%d/%Y') & Date <= as.Date('2/9/2025', format = '%m/%d/%Y'))
-
-d <- merge(filtered_perfrisk, c, by = 'anon_id', all = TRUE)
 
 #filter for just injuries in the lower body and get rid of duplicate observations and puts date in the correct format
 incident_lower <- Incident %>%
@@ -139,7 +142,7 @@ filtered_perfnorm <- subset(perfnorm,select=c("anon_id","Date","Position","Nordi
 
 #gets rid of position due to inconsistencies and puts date in correct format
 perfnorm_merge <- filtered_perfnorm %>%
-  select(-Position) %>%
+  dplyr::select(-Position) %>%
   mutate(Date = as.Date(Date, format = '%m/%d/%Y')) %>%
   na.omit()
 ```
@@ -150,11 +153,11 @@ perfnorm_merge <- filtered_perfnorm %>%
 
 ```{r}
 #refined perfrisk dataset
-filtered_perfrisk <- subset(perfrisk,select=c("anon_id", "Date","Position","Hamstring.Avg..Imbalance", "L..Hamstring.Max.Force","R..Hamstring.Max.Force","L..Eccentric.Mean.Force","R..Eccentric.Mean.Force","Eccentric.Mean.Force.Asym","CMJ.Landing.Asym.","CMJ.Jump.Height", "Relative.Peak.Power","CMJ.Peak.Force"))
+filtered_perfrisk <- subset(perfrisk, select=c("anon_id", "Date","Position","Hamstring.Avg..Imbalance", "L..Hamstring.Max.Force","R..Hamstring.Max.Force","L..Eccentric.Mean.Force","R..Eccentric.Mean.Force","Eccentric.Mean.Force.Asym","CMJ.Landing.Asym.","CMJ.Jump.Height", "Relative.Peak.Power","CMJ.Peak.Force"))
 
 #gets rid of position, puts date in the correct format and omits NA values
 perfrisk_merge <- filtered_perfrisk %>%
-  select(-Position) %>%
+  dplyr::select(-Position) %>%
   mutate(Date = as.Date(Date, format = '%m/%d/%Y')) %>%
   na.omit()
 ```
@@ -188,12 +191,9 @@ strgth_merge <- strengthtest %>%
 
 
 ```{r}
-#selecting variables of interest
-Vald <- subset(VALD, select = c("anon_id", "Session.Date", "Sport.Position", "Trend", "Maximum.Force", "Percent.Difference.Norm", "Nordic.Left.MAX", "Nordic.Right.MAX", "Nordic.MEAN.Imbalance.with.side", "Positional.Norm", "Nordic...Difference.from.First.Test", "Nordic.Left.Z.Score", "Nordic.Right.Z.Score", "Month", "Year"))
-
 #selects variables of interest and renames Sport.Position to Position
 Vald <- VALD %>%
-  transmute(anon_id, Session.Date, Position = Sport.Position, Trend, Maximum.Force, Percent.Difference.Norm, Nordic.Left.MAX, Nordic.Right.MAX, Nordic.MEAN.Imbalance.with.side, Positional.Norm, Nordic...Difference.from.First.Test, Nordic.Left.Z.Score, Nordic.Right.Z.Score, Nordic.Season.Average.Left, Nordic.Season.Average.Right, Nordic.MEAN.Imbalance)
+  transmute(anon_id, Session.Date, Position = Sport.Position, Trend, Maximum.Force, Nordic.Left.MAX, Nordic.Right.MAX, Nordic.MEAN.Imbalance.with.side, Nordic...Difference.from.First.Test, Nordic.Season.Average.Left, Nordic.Season.Average.Right, Nordic.MEAN.Imbalance, Hip.Abd.Trend, Hip.Abd.Percent.Difference.Norm, L3.Hip.Abduction.Mean.Imbalance, Hip.Add.Trend, Hip.Add.Percent.Difference.Norm, L3.Hip.Adduction.Mean.Imbalance, L3.Bilateral.Hip.Abduction.Adduction.Ratio)
 
 #selects only the necessary columns from positional dataset
 positional2 <- positional %>%
@@ -207,16 +207,21 @@ Vald <- Vald %>%
 
 #puts date in the right format and omits the NA values, lots of player position NAs
 vald_merge <- Vald %>%
-  select(-c('Nordic.Left.Z.Score', 'Nordic.Right.Z.Score', 'Percent.Difference.Norm', 'Positional.Norm')) %>%
+  dplyr::select(-c('Hip.Abd.Trend', 'Hip.Abd.Percent.Difference.Norm', 'L3.Hip.Abduction.Mean.Imbalance', 'Hip.Add.Trend', 'Hip.Add.Percent.Difference.Norm', 'L3.Hip.Adduction.Mean.Imbalance', 'L3.Bilateral.Hip.Abduction.Adduction.Ratio')) %>%
+  mutate(Date = as.Date(Session.Date, format = '%m/%d/%Y')) %>%
+  na.omit()
+
+#creates a second VALD dataset that contains hip abduction numbers as well
+vald_hip <- Vald %>%
   mutate(Date = as.Date(Session.Date, format = '%m/%d/%Y')) %>%
   na.omit()
 ```
 
 ```{r}
-ggplot(vald_merge, aes(x = Maximum.Force)) + 
-  geom_histogram(bins = 30, fill = 'royalblue', color = 'black') + 
-  labs(title = 'Distribution of Nordic Maximum Force',
-       x = 'Maximum Force',
+ggplot(vald_merge, aes(x = Perc.Diff.Norm)) + 
+  geom_histogram(bins = 30, fill = '#CFB87C', color = 'black') + 
+  labs(title = 'Distribution of Percent Difference from Norm',
+       x = 'Percentage Difference From Norm',
        y = 'Number of Athletes') +
   theme_bw()
 ```
@@ -231,14 +236,14 @@ Wellness <- subset(wellness, select = c("anon_id", "Date", "Mental.Score", "Phys
 
 #puts date in the right format and omits the NAs
 Wellness_merge <- Wellness %>%
-  select(-c('Month', 'Year')) %>%
+  dplyr::select(-c('Month', 'Year')) %>%
   mutate(Date = as.Date(Date, format = '%m/%d/%Y')) %>%
   na.omit()
 ```
 
 ```{r}
 ggplot(data = Wellness_merge, aes(x = Overall.Wellness.Score)) + 
-  geom_histogram(bins = 30, color = 'black', fill = 'royalblue') +
+  geom_histogram(bins = 30, color = 'black', fill = '#CFB87C') +
   theme_bw()
 ```
 
@@ -346,11 +351,38 @@ merge_vald <- merge_vald %>%
             Trend = mean(Trend, na.rm = TRUE),
             Nordic.Left.MAX = mean(Nordic.Left.MAX, na.rm = TRUE),
             Nordic.Right.MAX = mean(Nordic.Right.MAX, na.rm = TRUE),
-            #Nordic.Left.Z.Score = mean(Nordic.Left.Z.Score, na.rm = TRUE),
-            #Nordic.Right.Z.Score = mean(Nordic.Right.Z.Score, na.rm = TRUE),
             Nordic.MEAN.Imbalance.with.side = mean(Nordic.MEAN.Imbalance.with.side, na.rm = TRUE),
             Nordic.Mean.Imbalance = mean(Nordic.MEAN.Imbalance, na.rm = TRUE),
             Nordic...Difference.from.First.Test = mean(Nordic...Difference.from.First.Test, na.rm = TRUE), .groups = 'drop')
+```
+
+## Merging VALD with Hip Data
+
+```{r}
+merge_vald_hip <- merge(HSI_last_injury, vald_hip, by = c('anon_id'), all = TRUE)
+
+#creates a variable called Group that groups based on date within injury intervals and outputs 'After' if the date is after all injuries, and then these are omitted
+merge_vald_hip <- merge_vald_hip %>%
+  mutate(Hip.Abd.Trend = ifelse(Hip.Abd.Trend == 'Neutral', 0, ifelse(Hip.Abd.Trend == 'Up', 1, -1)),
+         Hip.Add.Trend = ifelse(Hip.Add.Trend == 'Neutral', 0, ifelse(Hip.Add.Trend == 'Up', 1, -1)),
+         Group = case_when(
+    is.na(Injury.1) | Date < Injury.1.Start ~ '0',
+    !is.na(Injury.1) & Date >= Injury.1.Start & Date <= Injury.1 ~ '1',
+    !is.na(Injury.2) & Date >= Injury.2.Start & Date <= Injury.2 ~ '2',
+    !is.na(Injury.3) & Date >= Injury.3.Start & Date <= Injury.3 ~ '3',
+    !is.na(Injury.4) & Date >= Injury.4.Start & Date <= Injury.4 ~ '4',
+    TRUE ~ 'After')) %>%
+  filter(Group != 'After') 
+
+merge_vald_hip <- merge_vald_hip %>%
+  group_by(anon_id, Group) %>%
+  summarise(Hip.Abd.Trend = mean(Hip.Abd.Trend, na.rm = TRUE),
+            Hip.Abd.Percent.Difference.Norm = mean(Hip.Abd.Percent.Difference.Norm, na.rm = TRUE),
+            Hip.Abd.Mean.Imbalance = mean(L3.Hip.Abduction.Mean.Imbalance, na.rm = TRUE),
+            Hip.Add.Trend = mean(Hip.Add.Trend, na.rm = TRUE),
+            Hip.Add.Percent.Difference.Norm = mean(Hip.Add.Percent.Difference.Norm, na.rm = TRUE),
+            Hip.Add.Mean.Imbalance = mean(L3.Hip.Adduction.Mean.Imbalance, na.rm = TRUE),
+            Hip.Abd.Add.Ratio = mean(L3.Bilateral.Hip.Abduction.Adduction.Ratio, na.rm = TRUE), .groups = 'drop')
 ```
 
 ## Merging Catapult
@@ -371,7 +403,8 @@ merge_catapult <- merge_catapult %>%
 
 merge_catapult <- merge_catapult %>%
   group_by(anon_id, Group) %>%
-  summarise(High.Speed.Distance = sum(High.Speed.Distance, na.rm = TRUE),
+  summarise(High.Speed.Distance.Total = sum(High.Speed.Distance, na.rm = TRUE),
+            Avg.High.Speed = mean(High.Speed.Distance, na.rm = TRUE),
             Very.High.Speed.Distance = sum(Very.High.Speed.Distance, na.rm = TRUE),
             Maximum.Velocity = mean(Maximum.Velocity, na.rm = TRUE),
             Average.Velocity = mean(Average.Velocity, na.rm = TRUE),
@@ -381,9 +414,11 @@ merge_catapult <- merge_catapult %>%
             IMA.Decel.Medium = sum(IMA.Decel.Medium, na.rm = TRUE),
             IMA.Accel.High = sum(IMA.Accel.High, na.rm = TRUE),
             IMA.Decel.High = sum(IMA.Decel.High, na.rm = TRUE),
-            IMA.Accel.Total = sum(IMA.Accel.Total, na.rm = TRUE),
+            Total.IMA.Accel = sum(IMA.Accel.Total, na.rm = TRUE),
+            Avg.IMA.A.Total = mean(IMA.Accel.Total, na.rm = TRUE),
             IMA.Decel.Total = sum(IMA.Decel.Total, na.rm = TRUE),
-            Explosive.Efforts = sum(Explosive.Efforts, na.rm = TRUE),
+            Total.Explosive = sum(Explosive.Efforts, na.rm = TRUE),
+            Avg.Explosive = mean(Explosive.Efforts, na.rm = TRUE),
             Total.Player.Load.C = mean(Total.Player.Load, na.rm = TRUE),
             Average.IMA = mean(Average.IMA, na.rm = TRUE),
             Max.Acceleration = max(Max.Acceleration, na.rm = TRUE),
@@ -516,21 +551,23 @@ merge_lower <- merge_lower %>%
 ## Merging All Datasets Together
 
 ```{r}
+#merging incident information with the risk status
 final_merge_full <- merge(merge_incid, merge_risk, by = c('anon_id', 'Group'), all = TRUE)
-
+#merging VALD data to the dataset
 final_merge_full <- merge(final_merge_full, merge_vald, by = c('anon_id', 'Group'), all = TRUE)
-#merging catapult with VALD
+#merging VALD hip data to the dataset
+final_merge_full <- merge(final_merge_full, merge_vald_hip, by = c('anon_id', 'Group'), all = TRUE)
+#merging catapult to the dataset
 final_merge_full <- merge(final_merge_full, merge_catapult, by = c('anon_id', 'Group'), all = TRUE)
-#merging wellness
+#merging wellness to the dataset
 final_merge_full <- merge(final_merge_full, merge_well, by = c('anon_id', 'Group'), all = TRUE)
-#merging ACWR
+#merging ACWR to the dataset
 final_merge_full <- merge(final_merge_full, merge_acwr, by = c('anon_id', 'Group'), all = TRUE)
-
 #merging strength testing data, does lower number of observations in final_merge
 final_merge_full <- merge(final_merge_full, merge_strgth, by = c('anon_id', 'Group'), all = TRUE)
-
+#merging perfrisk to the dataset
 final_merge_full <- merge(final_merge_full, merge_perfrisk, by = c('anon_id', 'Group'), all = TRUE)
-
+#creates a new column that is a binary indicator of HSI
 final_merge_full <- final_merge_full %>%
   mutate(HSI = as.factor(ifelse(Group > 0, 1, 0)))
 
@@ -543,9 +580,12 @@ final_merge <- final_merge_full %>%
          OSICS14.Code = ifelse(is.na(OSICS14.Code), 'None', OSICS14.Code),
          HSI = as.factor(ifelse(Group > 0, 1, 0)),
          Status = ifelse(is.na(Status), 'None', Status)) %>%
-  select(-Group) %>%
+  dplyr::select(-Group) %>%
   na.omit()
 
+final_merge2 <- final_merge %>%
+  filter(Status != 'None')
+  
 #creating a dataset similar to the one above but just data from 6 months prior to first injury
 before_only <- final_merge_full %>%
   filter(Group == 1 | Group == 0) %>%
@@ -556,30 +596,294 @@ before_only <- final_merge_full %>%
          OSICS14.Code = ifelse(is.na(OSICS14.Code), 'None', OSICS14.Code),
          HSI = as.factor(ifelse(Group > 0, 1, 0)),
          Status = ifelse(is.na(Status), 'None', Status)) %>%
-  select(-Group) %>%
+  dplyr::select(-Group) %>%
   na.omit()
+
+#subset of final_merge with only variables for model selection
+final_set <- final_merge %>%
+  dplyr::select(-c('anon_id', 'Time.Injured', 'OSICS14.Code', 'Status', 'Mechanism'))
 ```
 
 ```{r}
-table(final_merge_full$Status,final_merge_full$HSI)
+table(final_merge$HSI)
+```
+
+## Lasso
+
+```{r}
+set.seed(5)
+x_train <- model.matrix(HSI ~ ., data = smote_train)[,-1]
+y_train <- smote_train$HSI
+lambda_cv <- cv.glmnet(x = x_train, y = y_train, family = "binomial",
+alpha = 1, nfolds = 5, type.measure = "class")
+
+lambda_best <- lambda_cv$lambda.1se
+model_lasso <- glmnet(x = x_train, y = y_train, family = 'binomial',
+
+standardize = TRUE, alpha = 1)
+predict(model_lasso, type = "coefficients", s = lambda_best)
+```
+
+Lasso removes everything except for RecurrenceNone with VALD dataset and with the catapult dataset without SMOTE oversampling. 
+
+## Smote
+
+```{r}
+set.seed(10)
+
+rows <- createDataPartition(final_set$HSI, p=.80, list=FALSE)
+
+training <- final_set[rows,]
+testing <- final_set[-rows,]
+```
+
+```{r}
+set_X <- training[, setdiff(names(training), "HSI")]
+set_y <- training$HSI
+set_X_numeric <- data.frame(lapply(set_X, as.numeric))[,-1]
+
+smote_result <- SMOTE(set_X_numeric, set_y, K = 5, dup_size = 2)
+smote_train <- data.frame(smote_result$data)
+colnames(smote_train)[ncol(smote_train)] <- "HSI"
+
+smote_train <- smote_train %>%
+  mutate(HSI = as.factor(ifelse(HSI > 0, 1, 0)))
+
+table(smote_train$HSI)
+```
+
+## Stepwise (Forward)
+
+```{r}
+model_null_smote <- glm(HSI ~ 1, data = smote_train, family = 'binomial')
+model_step_smote <- glm(HSI ~ ., data = smote_train, family = 'binomial')
+
+model_forward_step <- stepAIC(model_null_smote, 
+                              scope = list(lower = model_null_smote, upper = model_step_smote), 
+                              direction = "forward")
+
+summary(model_forward_step)
+```
+
+```{r}
+testing <- testing %>%
+  mutate(prob = predict(model_forward_step, newdata = testing, type = 'response'),
+         pred = ifelse(prob > 0.5, 1, 0))
+
+table(testing$HSI, testing$pred)
+```
+
+```{r}
+pred <- prediction(predictions=testing$prob, labels = testing$HSI)
+
+perf <- performance(pred,measure='tpr',x.measure='fpr')
+
+plot(perf,colorize=TRUE)
+abline(a=0,b=1)
+```
+
+
+## Dimmension Reduction
+
+
+```{r}
+HSI_oversampled_pca <- smote_train %>%
+  mutate(HSI = as.factor(ifelse(HSI == 1, 'Yes', 'No')))
+
+ctrl <- trainControl(method = "cv", number = 5, classProbs = TRUE)
+
+model_pc <- train(HSI ~ ., data = HSI_oversampled_pca, method = "pls", tuneGrid = data.frame(ncomp = 1), preProcess = c("center", "scale"), metric = "Accuracy", trControl = trainControl(method = "none"))
+```
+
+```{r}
+testing <- testing %>%
+  mutate(prob_pc = predict(model_pc, newdata = testing, type = 'prob'),
+         pred_pc = ifelse(prob_pc > 0.5, 1, 0))
+
+table(testing$HSI, testing$pred_pc[,'Yes'])
+```
+
+
+## How Well Riskstatus Predicts Outcome
+
+```{r}
+final_merge2$Status <- factor(
+  final_merge2$Status,
+  levels = c("Routine", "Low", "Medium", "High"),
+  ordered = TRUE
+)
+```
+
+```{r}
+model_q1 <- glm(HSI~Status, data=final_merge2, family="binomial")
+summary(model_q1)
+exp(coef(model_q1))
+```
+
+```{r}
+final_merge2$pred_prob_q1 <- predict(model_q1,type="response")
+final_merge2$pred_class_q1 <- ifelse(final_merge2$pred_prob_q1>0.5,1,0) #class w/ 0.5 threshold
+
+pred <- factor(final_merge2$pred_class_q1, levels = c(0, 1))
+actual <- factor(final_merge2$HSI, levels = c(0, 1))
+
+#confusion matrix
+confusionMatrix(pred, actual)
+```
+
+```{r}
+roc_obj <- roc(final_merge2$HSI, final_merge2$pred_prob_q1)
+plot(roc_obj, main="ROC Curve", col="pink",lwd=3)
+auc(roc_obj)
+```
+
+```{r}
+table(final_merge2$HSI)
+prop.table(table(final_merge2$HSI))
+```
+
+## Rose
+
+```{r}
+#calculate averages to base risk flags off of 
+mean(final_set$Nordic.Mean.Imbalance)
+mean(final_set$Perc.Diff.Norm)
+```
+
+```{r}
+#BINARY FLAGS FOR RISK
+final_set <- final_set %>%
+  mutate(nordic_imbalance_flag = ifelse(Nordic.Mean.Imbalance > 9.711682, 1, 0),
+         difference_norm_flag = ifelse(Perc.Diff.Norm > -5.895355, 1, 0),
+         Recurrence = ifelse(Recurrence == 'None' | Recurrence == 'First', 0, 1))
+```
+
+```{r}
+final_set$HSI <- as.factor(final_set$HSI)
+
+set.seed(5)
+#training and testing
+train_idx <- createDataPartition(final_set$HSI, p=.80, list=FALSE)
+train <- final_set[train_idx,]
+test <- final_set[-train_idx,]
+
+#upsample minority class 
+train_up <- upSample(x=train %>% dplyr::select(-HSI), 
+         y= as.factor(train$HSI))
+#check balance 
+table(train_up$Class)
+```
+
+```{r}
+table(train$HSI)
+levels(train$HSI)
+```
+
+```{r}
+set.seed(5)
+#ROSE sampling (randomized oversampling examples)
+rose_train <- ROSE(HSI ~ ., data= train, seed=1)$data 
+
+#check results 
+table(rose_train$HSI)
+```
+
+```{r}
+#cross validation
+ctrl <- trainControl(method="cv", number=8, classProbs=TRUE,summaryFunction = twoClassSummary)
+
+#convert to character labels
+rose_train$Class <- factor(rose_train$HSI, levels= c(1,0), labels=c("Yes","No"))
+test$Class <- factor(test$HSI, levels= c(1,0), labels=c("Yes","No"))
+
+rose_train <- rose_train %>%
+  dplyr::select(-HSI) %>%
+  mutate(Class = as.factor(Class))
+
+levels(rose_train$Class)
+# Should return: [1] "No" "Yes"
+typeof(rose_train$Class)
+```
+
+```{r}
+set.seed(5)
+
+model_null <- glm(Class ~ 1, data = rose_train, family = 'binomial')
+model_step <- glm(Class ~ ., data = rose_train, family = 'binomial')
+
+model_forward_step <- stepAIC(model_null, 
+                              scope = list(lower = model_null, upper = model_step), 
+                              direction = "forward")
+
+summary(model_forward_step)
+```
+
+```{r}
+model_x <- glm(Class ~ Total.Player.Load.C + Nordic.Mean.Imbalance + Explosive.Efforts, data = rose_train, family = 'binomial')
+
+summary(model_x)
+
+#predict probabilities 
+test <- test %>%
+  mutate(prob = predict(model_x, newdata = test, type = 'response'),
+         pred = ifelse(prob > 0.5, 1, 0))
+
+table(test$HSI, test$pred)
+```
+
+```{r}
+set.seed(5)
+#ROSE model
+rose_model <- train(Class~Maximum.Force + Perc.Diff.Norm + Nordic.Mean.Imbalance + nordic_imbalance_flag + difference_norm_flag + Recurrence + High.Speed.Distance + IMA.Accel.Total + Explosive.Efforts + Average.IMA, data=rose_train, method="glm", family="binomial", trControl= ctrl, metric="ROC")
+
+summary(rose_model)
+```
+
+```{r}
+#predict probabilities 
+pred_probs <- predict(rose_model, newdata=test, type="prob")
+
+#ROC + AUC
+roc_obj2 <- roc(test$HSI, pred_probs$Yes)
+auc(roc_obj2)
+plot(roc_obj2, main="ROC Curve- ROSE Logistic Model")
+
+#confusion matrix
+pred_class <- predict(rose_model, newdata=test)
+confusionMatrix(pred_class,test$Class)
 ```
 
 
 ### Analyzing Catapult Correlations
 
 
-```{r}
-ggplot(data = final_merge, aes(x = IMA.Accel.Total, y = HSI)) +
-  geom_boxplot(color = 'black', fill = 'royalblue') + 
+```{r, warning = FALSE}
+ggplot(data = final_merge_full, aes(x = Total.Explosive, y = HSI)) +
+  geom_boxplot(color = 'black', fill = '#CFB87C') + 
   labs(title = 'Distribution of IMA Acceleration Counts vs HSI Occurence',
        x = 'IMA Total Acceleration Counts',
        y = 'HSI Occurence') + 
   theme_bw()
 ```
 
+```{r, warning=FALSE}
+ggplot(final_merge_full, aes(x = Avg.Explosive, fill = HSI)) + 
+  geom_histogram(color = 'black', position = 'identity', alpha = 0.6) +
+  theme_bw()
+```
+
 ```{r}
-ggplot(data = before_only, aes(x = IMA.Accel.Total, y = HSI)) +
-  geom_boxplot(color = 'black', fill = 'royalblue') + 
+final_merge_full %>%
+  group_by(HSI) %>%
+  summarize(Min.Explosive = min(Explosive.Efforts, na.rm = TRUE),
+            Median.Explosive = median(Explosive.Efforts, na.rm = TRUE),
+            Mean.Explosive = mean(Explosive.Efforts, na.rm = TRUE),
+            Max.Explosive = max(Explosive.Efforts, na.rm = TRUE))
+```
+
+```{r}
+ggplot(data = before_only, aes(x = Avg.Explosive, y = HSI)) +
+  geom_boxplot(color = 'black', fill = '#CFB87C') + 
   labs(title = 'Distribution of IMA Acceleration Counts vs HSI Occurence for First Injury',
        x = 'IMA Total Acceleration Counts',
        y = 'HSI Occurence') + 
@@ -597,9 +901,13 @@ table(final_merge$HSI, final_merge$Status)
 ```
 
 ```{r}
-model_status <- glm(HSI ~ IMA.Accel.Total + Explosive.Efforts, data = final_merge, family = 'binomial')
+set.seed(5)
 
-summary(model_status)
+model <- glm(HSI ~ ., data = final_set, family = 'binomial')
+
+forward_model <- stepAIC(model, direction = 'forward')
+
+summary(forward_model)
 ```
 
 
@@ -608,7 +916,7 @@ summary(model_status)
 
 ```{r}
 ggplot(data = final_merge, aes(x = Overall.Wellness.Score, y = HSI)) +
-  geom_boxplot(color = 'black', fill = 'royalblue') + 
+  geom_boxplot(color = 'black', fill = '#CFB87C') + 
   labs(title = 'Distribution of Overall Wellness Score vs HSI Occurence',
        x = 'Overall Wellness Score',
        y = 'HSI Occurence') + 
@@ -623,7 +931,7 @@ Does not appear to be very many correlations between wellness data and HSI occur
 
 ```{r}
 ggplot(data = final_merge, aes(x = Right.Hamstring.Quad.Ratio, y = HSI)) +
-  geom_boxplot(color = 'black', fill = 'royalblue') + 
+  geom_boxplot(color = 'black', fill = '#CFB87C') + 
   labs(title = 'Distribution of IMA Acceleration Counts vs HSI Occurence',
        x = 'IMA Total Acceleration Counts',
        y = 'HSI Occurence') + 
@@ -638,7 +946,7 @@ Could be weak correlation for H/Q ratio with the median Left/Right H/Q ratio bei
 
 ```{r}
 ggplot(data = final_merge, aes(x = Hamstring.Avg..Imbalance, y = HSI)) +
-  geom_boxplot(color = 'black', fill = 'royalblue') + 
+  geom_boxplot(color = 'black', fill = '#CFB87C') + 
   labs(title = 'Distribution of IMA Acceleration Counts vs HSI Occurence',
        x = 'IMA Total Acceleration Counts',
        y = 'HSI Occurence') + 
@@ -646,6 +954,17 @@ ggplot(data = final_merge, aes(x = Hamstring.Avg..Imbalance, y = HSI)) +
 ```
 
 Does not appear to be any valuable correlations in the perfrisk data. 
+
+### Analyzing Hip Data
+
+```{r}
+ggplot(data = final_merge, aes(x = Hip.Add.Mean.Imbalance, y = HSI)) +
+  geom_boxplot(color = 'black', fill = '#CFB87C') + 
+  labs(title = 'Distribution of IMA Acceleration Counts vs HSI Occurence',
+       x = 'IMA Total Acceleration Counts',
+       y = 'HSI Occurence') + 
+  theme_bw()
+```
 
 
 # Dashboard Recreation (Question 2)
@@ -719,8 +1038,8 @@ ID_75 was deemed routine risk on 06/27/2024 and suffered HSI in right hamstring 
 
 ```{r}
 #creates a boxplot comparing number of previous lower body injuries in those that experienced HSI versus those that didn't
-ggplot(data = dash_final, aes(x = Prev.Injury.Num, y = as.factor(HSI))) + 
-  geom_boxplot(color = 'black', fill = 'royalblue') + 
+ggplot(data = dash_final, aes(x = Prev.HSI, y = as.factor(Status))) + 
+  geom_boxplot(color = 'black', fill = '#CFB87C') + 
   labs(title = 'Distribution of Previous HSI vs Future HSI Occurence',
        y = 'Observations',
        x = 'Number of Previous HSI') +
@@ -732,7 +1051,7 @@ This plot is completely biased by the fact that observations are only in there i
 ```{r}
 #creates a boxplot comparing perfentage difference from normal strength level in those that experienced HSI versus those that didn't
 ggplot(data = dash_final, aes(x = Perc.Diff.Norm, y = as.factor(HSI))) + 
-  geom_boxplot(color = 'black', fill = 'royalblue') + 
+  geom_boxplot(color = 'black', fill = '#CFB87C') + 
   labs(title = 'Distribution of Percentage Difference from Norm vs Future HSI Occurence',
        y = 'HSI Occurence',
        x = 'Percentage Difference from Norm') +
@@ -743,8 +1062,8 @@ The median percent difference from norm for those who suffered HSI is less than 
 
 ```{r}
 #creates a boxplot comparing average nordic imbalance between legs in those that experienced HSI versus those that didn't
-ggplot(data = dash_final, aes(x = Nordic.Mean.Imbalance, y = as.factor(HSI))) + 
-  geom_boxplot(color = 'black', fill = 'royalblue') + 
+ggplot(data = dash_final, aes(x = Nordic.Mean.Imbalance, y = as.factor(Status))) + 
+  geom_boxplot(color = 'black', fill = '#CFB87C') + 
   labs(title = 'Distribution of Mean Imbalance vs Future HSI Occurence',
        y = 'HSI Occurence',
        x = 'Nordic Mean Imbalance Between Legs') +
@@ -755,8 +1074,8 @@ The median for average imbalance from those who experienced HSI is slightly high
 
 ```{r}
 #creates a boxplot comparing overall strength trend in those that experienced HSI versus those that didn't
-ggplot(data = dash_final, aes(x = Trend, y = as.factor(HSI))) + 
-  geom_boxplot(color = 'black', fill = 'royalblue') + 
+ggplot(data = dash_final, aes(x = Trend, y = as.factor(Status))) + 
+  geom_boxplot(color = 'black', fill = '#CFB87C') + 
   labs(title = 'Distribution of Strength Trend vs Future HSI Occurence',
        y = 'HSI Occurence',
        x = 'Strength Trend') +
@@ -772,7 +1091,7 @@ table(dash_final$HSI, dash_final$Status)
 
 ```{r}
 #creates a model predicting HSI occurence from the variables in the dashboard
-model <- glm(HSI ~ Prev.HSI + Perc.Diff.Norm + Nordic.Mean.Imbalance + Trend, 
+model <- glm(HSI ~ Perc.Diff.Norm + Nordic.Mean.Imbalance + Trend + Perc.Diff.Norm * Nordic.Mean.Imbalance + Perc.Diff.Norm * Trend + Trend * Nordic.Mean.Imbalance, 
              data = dash_final, family = 'binomial')
 
 summary(model)
@@ -962,8 +1281,8 @@ validation_hr_HSI <- validation_hr_HSI %>%
          
 #adds columns that return 'Yes' if an injury occurred after the athlete was deemed high risk and a 'No' if no injury occurred after
 validation_hr_HSI <- validation_hr_HSI %>%
-         mutate(Test.1.Success = ifelse(is.na(Test.1), NA, ifelse(rowSums((select(., Injury.1.After:Injury.4.After) > 0), na.rm = TRUE) > 0, 'Yes', 'No')),
-         Test.2.Success = ifelse(is.na(Test.2), NA, ifelse(rowSums((select(., Injury.1.After.2:Injury.4.After.2) > 0), na.rm = TRUE) > 0, 'Yes', 'No')))
+         mutate(Test.1.Success = ifelse(is.na(Test.1), NA, ifelse(rowSums((dplyr::select(., Injury.1.After:Injury.4.After) > 0), na.rm = TRUE) > 0, 'Yes', 'No')),
+         Test.2.Success = ifelse(is.na(Test.2), NA, ifelse(rowSums((dplyr::select(., Injury.1.After.2:Injury.4.After.2) > 0), na.rm = TRUE) > 0, 'Yes', 'No')))
 ```
 
 Injury.1.After = ifelse(!is.na(Injury.1) & !is.na(Test.1), as.Date(str_sub(validation_hr_HSI$Injury.1, start = -10), format = '%m/%d/%Y') - as.Date(Test.1), NA)
@@ -983,7 +1302,7 @@ mean(tests_outcomes_hr$outcomes == 'Yes')
 #visualizing using a bar plot 
 ggplot(tests_outcomes_hr, aes(x = outcomes_hr, fill = outcomes_hr)) + 
   geom_bar(color = 'black', show.legend = FALSE) +
-  scale_fill_manual(values = c('gold2', 'grey2')) + 
+  scale_fill_manual(values = c('#CFB87C', '#565A5C')) + 
   labs(title = 'Outcomes of Soft Tissue Watchlist (High Risk)',
        x = 'Injury Occured After Deemed High Risk',
        y = 'Number of Observations') + 
@@ -1007,23 +1326,22 @@ length_time <- length_time %>%
   na.omit() %>%
   mutate(anon_id = ids,
          Test.to.HSI = as.numeric(all_times)) %>%
-  select(-c(all_times, ids)) %>%
+  arrange(Test.to.HSI) %>%
+  dplyr::select(-c(all_times, ids)) %>%
   filter(Test.to.HSI > 0)
 
-length_time1 <- length_time[-c(4, 7),]
+length_time1 <- length_time[-c(7, 10),]
 
 #calculating percent of the time right
 mean(length_time1$Test.to.HSI)
 
 #visualizing using a bar plot 
-ggplot(length_time, aes(x = Test.to.HSI)) + 
-  geom_dotplot(color = 'black', fill = 'royalblue', binwidth = 7.5) +
+ggplot(length_time1, aes(x = reorder(anon_id, Test.to.HSI), y = Test.to.HSI)) + 
+  geom_col(fill = '#CFB87C', color = 'black', position = "identity", alpha = 0.7) +
   labs(title = 'Time from Test to HSI (High Risk)',
-       x = 'Days After being Deemed High Risk',
-       y = 'Number of Observations') + 
-  theme_bw() +
-  theme(axis.text.y = element_blank(),
-        axis.ticks.y = element_blank()) 
+       x = 'Player Anon ID',
+       y = 'Days After Being Deemed High Risk') + 
+  theme_bw()
 ```
 
 In this plot it is important to note that two of the dots represent second injuries to the same player that also occured after being deemed high risk on the watchlist. This is ID_95 with an injury coming 34 days after and then 83 days after. It is also ID_85 with an injury coming 21 days after and then 216 days after. Player ID_98 also has a kind of duplicate entry since his second injury occurred after both of his tests so he accounts for a dot at 139 and 12 days.
@@ -1114,8 +1432,8 @@ validation_lr_HSI <- validation_lr_HSI %>%
          
 #adds columns that return 'Yes' if an injury occurred after the athlete was deemed high risk and a 'No' if no injury occurred after
 validation_lr_HSI <- validation_lr_HSI %>%
-         mutate(Test.1.Success = ifelse(is.na(Test.1), NA, ifelse(rowSums((select(., Injury.1.After:Injury.4.After) > 0), na.rm = TRUE) > 0, 'Yes', 'No')),
-         Test.2.Success = ifelse(is.na(Test.2), NA, ifelse(rowSums((select(., Injury.1.After.2:Injury.4.After.2) > 0), na.rm = TRUE) > 0, 'Yes', 'No')))
+         mutate(Test.1.Success = ifelse(is.na(Test.1), NA, ifelse(rowSums((dplyr::select(., Injury.1.After:Injury.4.After) > 0), na.rm = TRUE) > 0, 'Yes', 'No')),
+         Test.2.Success = ifelse(is.na(Test.2), NA, ifelse(rowSums((dplyr::select(., Injury.1.After.2:Injury.4.After.2) > 0), na.rm = TRUE) > 0, 'Yes', 'No')))
 ```
 
 ### Visualizations
@@ -1214,8 +1532,8 @@ validation_med_HSI <- validation_med_HSI %>%
          
 #adds columns that return 'Yes' if an injury occurred after the athlete was deemed high risk and a 'No' if no injury occurred after
 validation_med_HSI <- validation_med_HSI %>%
-         mutate(Test.1.Success = ifelse(is.na(Test.1), NA, ifelse(rowSums((select(., Injury.1.After:Injury.4.After) > 0), na.rm = TRUE) > 0, 'Yes', 'No')),
-         Test.2.Success = ifelse(is.na(Test.2), NA, ifelse(rowSums((select(., Injury.1.After.2:Injury.4.After.2) > 0), na.rm = TRUE) > 0, 'Yes', 'No')))
+         mutate(Test.1.Success = ifelse(is.na(Test.1), NA, ifelse(rowSums((dplyr::select(., Injury.1.After:Injury.4.After) > 0), na.rm = TRUE) > 0, 'Yes', 'No')),
+         Test.2.Success = ifelse(is.na(Test.2), NA, ifelse(rowSums((dplyr::select(., Injury.1.After.2:Injury.4.After.2) > 0), na.rm = TRUE) > 0, 'Yes', 'No')))
 ```
 
 ### Visualizations
@@ -1314,8 +1632,8 @@ validation_rout_HSI <- validation_rout_HSI %>%
          
 #adds columns that return 'Yes' if an injury occurred after the athlete was deemed high risk and a 'No' if no injury occurred after
 validation_rout_HSI <- validation_rout_HSI %>%
-         mutate(Test.1.Success = ifelse(is.na(Test.1), NA, ifelse(rowSums((select(., Injury.1.After:Injury.4.After) > 0), na.rm = TRUE) > 0, 'Yes', 'No')),
-         Test.2.Success = ifelse(is.na(Test.2), NA, ifelse(rowSums((select(., Injury.1.After.2:Injury.4.After.2) > 0), na.rm = TRUE) > 0, 'Yes', 'No')))
+         mutate(Test.1.Success = ifelse(is.na(Test.1), NA, ifelse(rowSums((dplyr::select(., Injury.1.After:Injury.4.After) > 0), na.rm = TRUE) > 0, 'Yes', 'No')),
+         Test.2.Success = ifelse(is.na(Test.2), NA, ifelse(rowSums((dplyr::select(., Injury.1.After.2:Injury.4.After.2) > 0), na.rm = TRUE) > 0, 'Yes', 'No')))
 ```
 
 ### Visualizations
