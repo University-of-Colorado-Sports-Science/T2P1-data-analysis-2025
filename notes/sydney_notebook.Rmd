@@ -701,20 +701,36 @@ merge_lower <- merge_lower %>%
   mutate(Injuries.Last.3.Months = ifelse(is.na(Group) | Group == 0, sapply(strsplit(OSICS14.Code, " and "), length), sapply(strsplit(OSICS14.Code, " and "), length) - 1))
 ```
 ```{r}
-full_merge <- merge(merge_lower, merge_vald, by = c('anon_id', 'Group'), all = TRUE)
-full3_merge <- merge(full_merge, merge_risk, by = c('anon_id', 'Group'), all = TRUE)
+merge_well1 <- merge_well %>%
+  dplyr::select("anon_id", "Group","Overall.Wellness.Score") %>%
+  na.omit()
+#merge_catapult Explosive.Efforts
+merge_catapult2 <- merge_catapult %>%
+  dplyr::select("anon_id", "Group","Maximum.Velocity") %>%
+  na.omit()
 
-filter_full3_merge <- full3_merge %>%
-  #summarise(Status= Status) %>%
-  mutate(Group = ifelse(is.na(Group), 0, Group),
-         #Trend= get_mode(Trend),
+#Positional.Norm, Nordic.MEAN.Imbalance.with.side(VALD), 
+#VALD
+merge_vald2 <- merge_vald %>%
+  dplyr::select(-"Percent.Difference.Norm",-"Positional.Norm")
+```
+
+```{r}
+full_merge <- merge(merge_lower, merge_vald2, by = c('anon_id', 'Group'), all = TRUE)
+full3_merge <- merge(full_merge, merge_risk, by = c('anon_id', 'Group'), all = TRUE)
+full3 <- merge(full3_merge,merge_well1, by = c('anon_id', 'Group'), all = TRUE) #ADDED
+#full <- merge(full3_merge, merge_catapult2, by = c('anon_id', 'Group'), all = TRUE) #ADDED
+
+filter_full3_merge <- full3 %>%
+  mutate(Group = ifelse(is_empty(Group), 0, Group),
          Mechanism = ifelse(is.na(Mechanism), 'None', Mechanism),
          Recurrence = ifelse(is.na(Recurrence), 'None', Recurrence),
          Time.Injured = ifelse(is.na(Time.Injured), 0, Time.Injured),
          OSICS14.Code = ifelse(is.na(OSICS14.Code), 'None', OSICS14.Code),
          HSI = ifelse(Group > 0, 1, 0)) %>%
   dplyr::select(-Group) %>%
-  na.omit()    #44 0bs. & 17 variables 
+  na.omit()    #WAS (before added things) 44 0bs. & 17 variables
+           #NOW 35 Obs. & 15 variables 
 ```
 
 ## Exploratory Analysis: descriptive stats + plots
@@ -1289,18 +1305,21 @@ Q2. How do components of the watch list predict HSI? subsequent//following HSI i
 -Dealing w/ Class Imbalances
 ```{r}
 #demonstration of class imbalance that needs to be addressed 
-table(filter_full3$HSI)
-prop.table(table(filter_full3$HSI))
+table(filter_full3_merge$HSI)
+prop.table(table(filter_full3_merge$HSI))
 ```
 NOTE: HSI events are more rare causing a class in balance (majority class== no injury), can lead to misleading data
 ```{r}
 #calculate averages to base risk flags off of 
-mean(filter_full3$Nordic.MEAN.Imbalance.with.side)
-mean(filter_full3$Percent.Difference.Norm)
+mean(filter_full3_merge$Nordic.MEAN.Imbalance.with.side)
+mean(filter_full3_merge$Maximum.Force)
+mean(filter_full3_merge$Nordic.Right.MAX)
+mean(filter_full3_merge$Nordic.Left.MAX)
+mean(filter_full3_merge$Overall.Wellness.Score)
 
 #convert from character to numeric
-filter_full3$Time.Injured <- as.numeric(filter_full3$Time.Injured)
-mean(filter_full3$Time.Injured)
+filter_full3_merge$Time.Injured <- as.numeric(filter_full3_merge$Time.Injured)
+mean(filter_full3_merge$Time.Injured)
 ```
 
 ```{r}
@@ -1310,7 +1329,8 @@ filter_full3 <- filter_full3 %>%
  # mutate(maxforce_z_self= scale(Maximum.Force)) %>%
      #   ungroup() %>%
   mutate(nordic_imbalance_flag= if_else(Nordic.MEAN.Imbalance.with.side>1.28,1,0),
-         difference_norm_flag= if_else(Percent.Difference.Norm>-5.93,1,0),
+         nordic_z_right= scale(Nordic.Right.MAX),
+         nordic_zleft= scale(Nordic.Left.MAX),
          time_injured_flag= if_else(Time.Injured> 13.25,1,0))
 
 #convert all categorical variables to factors 
@@ -1370,8 +1390,6 @@ confusionMatrix(pred_class,test$Class)
 
 ```{r}
 library(MASS)
-library(randomForest)
-library(xgboost)
 ```
 
 ##ALL THE NULL MODELS
@@ -1405,6 +1423,11 @@ summary(smaller_model2)
 
 ##Linear: LASSO Method
 ```{r}
+#input matrices 
+x <- 
+y <-
+
+y <- ifelse
 
 ```
 
@@ -1436,13 +1459,28 @@ plot(roc_tree)
 auc(roc_tree)
 ```
 
-##XG Boosting 
+##XG Boosting -powerful machine learning method
 ```{r}
+library(xgboost)
+train_xgb <- train_up %>%
+  mutate(HSI= as.numeric(as.character(HSI)))
+test_xgb <- test %>%
+  mutate(HSI= as.numeric(as.character(HSI)))
 
+#matrix inputs
+dtrain <- xgb.DMatrix(data = as.matrix(train_xgb[, c("nordic_z_self", "avg_imbalance", "position_norm_diff")]),
+                      label = train_xgb$hsi_incident)
+dtest <- xgb.DMatrix(data = as.matrix(test_xgb[, c("nordic_z_self", "avg_imbalance", "position_norm_diff")]),
+                     label = test_xgb$hsi_incident)
+
+#train model
+xgb_boost_model <- xgbboost(data=dtrain,objective="binary:logistic", nrounds=100,verbose=0)
+#testing
+pred_xgb <- predict(xgb_boost_model, dtest)
+roc_xgb <- roc(test_xgb$HSI,pred_xgb)
+plot(roc_xgb)
+auc(roc_xgb)
 ```
-
-
-
 
 ```{r}
 #track specific athletes through injury + recovery) ex: anon_id[220,83]
@@ -1451,8 +1489,85 @@ auc(roc_tree)
 ```
 
 
-
 ##Threshold Optimzation 
+Q3: Can we find better thresholds for flagging risks?
+```{r}
+#boxplots//violin plots
+#nordic zscore vs HSI
+ggplot(data=, x=HSI, y=nordic_z_self)+
+  geom_violin(fill="pink")+
+  geom_boxplot(width=0.2)+
+  labs(title="Nordic Z-Score vs HSI Outcome")
+
+#Imbalance 
+ggplot(data=, aes(x = hsi_incident, y = avg_imbalance)) +
+  geom_violin(fill = "pink") +
+  geom_boxplot(width = 0.1)
+
+#lots more plots
+```
+
+```{r}
+library(rpart)
+library(rpart.plot)
+#determine threshold w/ decision tree// CART Model
+
+tree_model2 <- rpart(HSI~., data=data, method="class", cp=0.01)
+rpart.plot(tree_model2, extra=106)
+
+#test binary flags from these thresholds // rule based features 
+data <- data %>%
+  #same flags created before
+```
+
+```{r}
+#logistic regression with flags
+model_thresh <- glm(HSI~., data=data, family="binomial")
+summary(model_thresh)
+
+#performance of model 
+thresh_preds <- predict(model_thresh, type="response")
+roc_thresh <- roc(data$HSI, data$thresh_preds)
+plot(roc_thresh)
+auc(roc_thresh)
+
+#compare rule based risk to watch list(dashboard)
+table(data$Status, data$HSI)
+table(data$nordic_flag, data$HSI)
+```
+
+```{r}
+#old vs new classification method
+model_watchlist <- glm(HSI~Status,data=data, family="binomial")
+model_flags <- glm(HSI~flags set, data=data, family="binomial")
+
+#AUC's
+auc_watchlist <- roc(data$HSI, predict(model_watchlist, type="response"))
+auc_flags <- roc(data$HSI, predict(model_flags, type="response"))
+
+plot(auc_watchlist,col,col="pink")
+lines(auc_flags, col="blue")
+legend("bottomright", legend=c("Watch List","Flag Model"), col=c("pink","blue"),lwd=2)
+```
+
+
+
+
+
+##Multimetric Matrix
+```{r}
+#goal to create a risk score by counting how many thresholds an athlete breaches 
+
+
+```
+
+
+
+
 
 
 ## Further Validation & Comparision  
+
+
+
+
