@@ -36,6 +36,9 @@ wellness <- read.csv("~/T2P1-data-analysis-2025/data-sets/Wellness Report FB.csv
 ```{r}
 perfnorm_byposition <- read.csv("~/T2P1-data-analysis-2025/data-sets/FB Performance Normative Data 2024.csv")  ##NEW GIVEN DATASET TO LOOK INTO
 ```
+```{r}
+player_byposition <- read.csv("~/T2P1-data-analysis-2025/data-sets/deid_pos.csv")
+```
 
 ## Data Cleaning 
 
@@ -1441,21 +1444,117 @@ plot(roc_obj, main="ROC Curve", col="pink",lwd=3)
 auc(roc_obj)
 ```
 
+```{r}
+#calculate proportions
+table_high <- table(HSIincident_vs_risk2$HSI[HSIincident_vs_risk2$Status=="High"])
+incidence_high <- prop.table(table_high)[2]   #P(HSI|High)
+
+table_others <- table(HSIincident_vs_risk2$HSI[HSIincident_vs_risk2$Status!="High"])
+incidence_others <- prop.table(table_others)[2]   #P(HSI|Not High)
+
+table_flag <-table(HSIincident_vs_risk2$Status=="High",HSIincident_vs_risk2$HSI)
+chisq.test(table_flag)
+fisher.test(table_flag)    # aplha=0.05
+```
+P-values < alpha therefore statistically significant. 
 
 Q2. How do components of the watch list predict HSI? subsequent//following HSI injury risk?
+##                         TRY AGAIN WITH MY BIGGER// BETTER DATASET filter_full3_merge// SEE IF RESULTS COME OUT BETTER THAT WAY 
+
 ## Modeling & Evaluations
-#looking to build models by positional grouping// build thresholds (Q3) by positions aswell 
+```{r}
+#BINARY FLAGS FOR RISK
+filter_full3 <- filter_full3_merge %>%
+ group_by(anon_id) %>%
+ mutate(force_zscore= scale(Maximum.Force)) %>%
+ ungroup() %>%
+  mutate(nordic_imbalance_flag= if_else(Nordic.MEAN.Imbalance.with.side>1.28,1,0),
+         nordic_z_right= scale(Nordic.Right.MAX),
+         nordic_z_left= scale(Nordic.Left.MAX),
+         nordic_zscore=mean(nordic_z_left+nordic_z_right),
+         time_injured_flag= if_else(Time.Injured> 13.25,1,0))
+
+#convert all categorical variables to factors 
+filter_full3$anon_id <- as.factor(filter_full3$anon_id)
+filter_full3$Status <- as.factor(filter_full3$Status)
+filter_full3$HSI <- as.factor(filter_full3$HSI)
+#filter_full3$Recurrence <- as.factor(filter_full3$Recurrence)
+filter_full3$Trend <- as.factor(filter_full3$Trend)
+```
+
+```{r}
+#boxplots for visual comparison                     Highrisk_binary== high risk flag  
+#boxplot(nordic_zscore~ Highrisk_binary, data=filter_full3, main="Nordic Z-score by High Risk Status")
+
+ggplot(data=filter_full3, aes(x=Status, y=nordic_zscore))+
+  geom_smooth() +
+  geom_boxplot(width=2)+
+  labs(title="Nordic Z-score by High Risk Status")
+
+ggplot(data=filter_full3, aes(x=HSI, y=nordic_zscore))+
+  geom_violin(fill="pink")+
+  geom_boxplot(width=2)+
+  labs(title="Nordic Z-Score vs HSI Outcome")
+
+#Imbalance 
+ggplot(data=filter_full3, aes(x =HSI, y = nordic_imbalance_flag)) +
+  geom_violin(fill = "pink") +
+  geom_boxplot(width = 0.1)
+
+ggplot(data=filter_full3, aes(x = nordic_zscore, y = as.numeric(HSI))) +
+  geom_smooth() +
+  geom_boxplot(width = 3)+
+  labs(title="Injury Rate vs Nordic Z-score")
+
+#t tests
+t.test(nordic_zscore~Highrisk_binary,data=filter_full3)
+t.test(force_zscore~Highrisk_binary,data=filter_full3)  # do again with force (Maximum.Force)
+
+#display results of  t-test 
+#see if plots can look better 
+```
+
+#Q3
+##THRESHOLD EXPLORATION 
+```{r}
+#average values by group
+aggregate(nordic_zscore~Status,data=filter_full3, mean)
+aggregate(force_zscore~Status,data=filter_full3, mean)
+
+#quantiles can be used for thresholds aswell 
+quantile(filter_full3$nordic_zscore[filter_full3$Status=="High"],probs=c(0.10,0.25,0.50,0.75))
+```
+
+```{r}
+#merge position into filter_full3 with HSIincidentvsrisk2 or merge_position 
+df <- merge(filter_full3, merge_position, by="anon_id")
+df2 <- unique(df)
+```
+
+```{r}
+#now concern of different flagging (flags) needed for different positions 
+
+#compare with each different positions 
+wr <- subset(data=df2, Position="WR")
+boxplot(nordic_zscore~Highrisk_binary, data=wr, main="WR Nordic by Risk")
+
+#do with all different positions (pay special attention to positions highlgihted on the google doc)
+```
+
+```{r}
+#then summarizing tables, findings 
+
+```
+
+#looking to build models by positional grouping// build thresholds (Q3) by positions aswell ??
 ```{r}
 #sort out final_merge_full to 1 position at a time
 final_merge_full_OL <- subset(final_merge_full,grepl("OL", final_merge_full$Position)) #203 obs. 60 vars.
 table(final_merge_full_OL$HSI, final_merge_full_OL$Status)  #OFFENSIVE LINEMEN
-
 final_merge_full_DL <- subset(final_merge_full,grepl("DL", final_merge_full$Position)) #203 obs. 60 vars.
 table(final_merge_full_DL$HSI, final_merge_full_DL$Status)  #DEFENSIVE LINEMEN
-
 final_merge_full_LB <- subset(final_merge_full,grepl("LB", final_merge_full$Position)) #203 obs. 60 vars.
 table(final_merge_full_LB$HSI, final_merge_full_LB$Status)  #LINEBACKERS
-
 
 #add row of whatever position working on and add averages to use as baseline for flagging system work Average column (11 new columns)
 ```
@@ -1465,8 +1564,11 @@ table(final_merge_full_LB$HSI, final_merge_full_LB$Status)  #LINEBACKERS
 #demonstration of class imbalance that needs to be addressed 
 table(final_merge_full$HSI,final_merge_full$Status)
 ```
+
 NOTE: HSI events are more rare causing a class in balance (majority class== no injury), can lead to misleading data
+
 ```{r}
+##NOT NEEDED ATM // MAYBE ADD LATER ON IF WOULD HELP MAKE IT EASIER # change to filter_full3
 #ordinal variable 
 final_merge_full$Status <- factor(
   final_merge_full$Status,
@@ -1480,23 +1582,7 @@ final_merge_full <- final_merge_full %>%
     Trend=="Neutral"~1,
     Trend=="Down"~0
   ))               #Up=2, Down=0 ,Neutral=1
-    
-#calculate averages to base risk flags off of 
-mean(final_merge_full$Nordic.MEAN.Imbalance.with.side)
-mean(final_merge_full$Maximum.Force)
-mean(final_merge_full$Nordic.Right.MAX)
-mean(final_merge_full$Nordic.Left.MAX)
-mean(final_merge_full$Overall.Wellness.Score)
-
-#convert from character to numeric
-#convert recurrence column into # groups (First Recurrence=2, New Injury/Illness=1, None=0)
-#None=0, New Injury/Illness=1, First Recurrence=2
-final_merge_full <- final_merge_full$Time.Injured <- as.numeric(final_merge_full$Time.Injured)
-mean(final_merge_full$Time.Injured)
-```
-##NOT NEEDED
-```{r}
-#convert recurrence column into # groups (First Recurrence=2, New Injury/Illness=1, None=0)
+    #convert recurrence column into # groups (First Recurrence=2, New Injury/Illness=1, None=0)
 #None=0, New Injury/Illness=1, First Recurrence=2
 final_merge_full <- final_merge_full %>%
   mutate(Recurrence=case_when(
@@ -1504,29 +1590,17 @@ final_merge_full <- final_merge_full %>%
    Recurrence=="New Injury/Illness"~1,
    Recurrence=="First recurrence"~2
   ))  
+#convert from character to numeric
+#convert recurrence column into # groups (First Recurrence=2, New Injury/Illness=1, None=0)
+#None=0, New Injury/Illness=1, First Recurrence=2
+final_merge_full <- final_merge_full$Time.Injured <- as.numeric(final_merge_full$Time.Injured)
+mean(final_merge_full$Time.Injured)
 ```
- 
+
 ```{r}
-#BINARY FLAGS FOR RISK
-filter_full3 <- filter_full3 %>%
- # group_by(anon_id) %>%
- # mutate(maxforce_z_self= scale(Maximum.Force)) %>%
-     #   ungroup() %>%
-  mutate(nordic_imbalance_flag= if_else(Nordic.MEAN.Imbalance.with.side>1.28,1,0),
-         nordic_z_right= scale(Nordic.Right.MAX),
-         nordic_zleft= scale(Nordic.Left.MAX),
-         time_injured_flag= if_else(Time.Injured> 13.25,1,0))
-
-#convert all categorical variables to factors 
-filter_full3$anon_id <- as.factor(filter_full3$anon_id)
-filter_full3$Status <- as.factor(filter_full3$Status)
-filter_full3$HSI <- as.factor(filter_full3$HSI)
-#filter_full3$Recurrence <- as.factor(filter_full3$Recurrence)
-filter_full3$Trend <- as.factor(filter_full3$Trend)
-
 set.seed(22)
-#training and testing
-train_idx <- createDataPartition(filter_full3_merge$HSI, p=.80, list=FALSE)
+#training and testing                               #DATA == filter_full3 or df2
+train_idx <- createDataPartition(filter_full3$HSI, p=.80, list=FALSE)
 train <- filter_full3[train_idx,]
 test <- filter_full3[-train_idx,]
 
@@ -1536,6 +1610,8 @@ train_up <- upSample(x=train %>% dplyr::select(-HSI),
 #check balance 
 table(train_up$Class)   #HSI== Class
 ```
+
+##NOT NEEDED 
 ```{r}
 #convert to character labels
 train_up$Class <- factor(train_up$Class, levels = c(1,0), labels = c("Injury","NoInjury"))
@@ -1557,9 +1633,7 @@ rose_model <- train(Class~Maximum.Force + Nordic.MEAN.Imbalance.with.side +
                     trControl = ctrl,
                     metric = "ROC")
 rose_model
-```
 
-```{r}
 #predict probabilities 
 pred_probs <- predict(rose_model, newdata=test, type="prob")
 #ROC + AUC
@@ -1571,48 +1645,34 @@ pred_class <- predict(rose_model, newdata=test)
 confusionMatrix(pred_class,test$Class)
 ```
 
-```{r}
-set.seed(22)
-#training and testing
-train_idx <- createDataPartition(filter_full3_merge$HSI, p=.80, list=FALSE)
-train <- filter_full3[train_idx,]
-test <- filter_full3[-train_idx,]
-
-#upsample minority class 
-train_up <- upSample(x=train %>% dplyr::select(-HSI), 
-         y= as.factor(train$HSI))
-#check balance 
-table(train_up$Class)   #HSI== Class
-
-table(filter_full3_merge$HSI, filter_full3_merge$Status)
-```
-
 
 ##NONLINEAR METHODS- Random Forests 
 ```{r}
 set.seed(22)
 library(randomForest)
-rf_model <- randomForest(as.factor(HSI)~., data=filter_full3_merge, ntree=500, importance=TRUE)
+rf_model <- randomForest(as.factor(Class)~., data=train_up, ntree=500, importance=TRUE)
 varlmpPlot(rf)
 
 #testing
 rf_preds <- predict(rf_model, test, type="prob")[,2]
-roc_rf <- roc(test$HSI, rf_preds)
+roc_rf <- roc(test$Class, rf_preds)
 plot(roc_rf)
 auc(roc_rf)
 ```
 
-##Decision Tree
+##Decision Tree for Threshold Exploration 
 ```{r}
+library(rpart)
+library(rpart.plot)
 set.seed(22)
-#threshold exploration
-tree_model <- rpart(HSI~.,data=filter_full3_merge, method="class", cp=0.01)
 
-rpart.plot(tree_model,extra=106)
+tree_model <- rpart(HSI~., data=filter_full3_merge, method="class", cp=0.01)
+rpart.plot(tree_model, extra=106)
 
+#test binary flags from these thresholds // rule based features
 #testing
 tree_preds <- predict(tree_model, test, type="prob")[,2]
-roc_tree <- roc(test$HSI, tree_preds)
+roc_tree <- roc(test$Class, tree_preds)
 plot(roc_tree)
 auc(roc_tree)
 ```
@@ -1626,10 +1686,10 @@ test_xgb <- test %>%
   mutate(HSI= as.numeric(as.character(HSI)))
 
 #matrix inputs
-dtrain <- xgb.DMatrix(data = as.matrix(train_xgb[, c("nordic_z_self", "avg_imbalance", "position_norm_diff")]),
-                      label = train_xgb$hsi_incident)
-dtest <- xgb.DMatrix(data = as.matrix(test_xgb[, c("nordic_z_self", "avg_imbalance", "position_norm_diff")]),
-                     label = test_xgb$hsi_incident)
+dtrain <- xgb.DMatrix(data = as.matrix(train_xgb[, c("nordic_zscore", "force_zscore")]),
+                      label = train_xgb$HSI)
+dtest <- xgb.DMatrix(data = as.matrix(test_xgb[, c("nordic_zscore","force_zscore")]),
+                     label = test_xgb$HSI)
 
 #train model
 xgb_boost_model <- xgbboost(data=dtrain,objective="binary:logistic", nrounds=100,verbose=0)
@@ -1649,34 +1709,6 @@ auc(roc_xgb)
 
 ##Threshold Optimzation 
 Q3: Can we find better thresholds for flagging risks?
-```{r}
-#boxplots//violin plots
-#nordic zscore vs HSI
-ggplot(data=, x=HSI, y=nordic_z_self)+
-  geom_violin(fill="pink")+
-  geom_boxplot(width=0.2)+
-  labs(title="Nordic Z-Score vs HSI Outcome")
-
-#Imbalance 
-ggplot(data=, aes(x = hsi_incident, y = avg_imbalance)) +
-  geom_violin(fill = "pink") +
-  geom_boxplot(width = 0.1)
-
-#lots more plots
-```
-
-```{r}
-library(rpart)
-library(rpart.plot)
-#determine threshold w/ decision tree// CART Model
-
-tree_model2 <- rpart(HSI~., data=data, method="class", cp=0.01)
-rpart.plot(tree_model2, extra=106)
-
-#test binary flags from these thresholds // rule based features 
-data <- data %>%
-  #same flags created before
-```
 
 ```{r}
 #logistic regression with flags
@@ -1702,17 +1734,10 @@ model_flags <- glm(HSI~flags set, data=data, family="binomial")
 #AUC's
 auc_watchlist <- roc(data$HSI, predict(model_watchlist, type="response"))
 auc_flags <- roc(data$HSI, predict(model_flags, type="response"))
-
 plot(auc_watchlist,col,col="pink")
 lines(auc_flags, col="blue")
 legend("bottomright", legend=c("Watch List","Flag Model"), col=c("pink","blue"),lwd=2)
 ```
 
-##Multimetric Matrix- goal to create a risk score by counting how many thresholds an athlete breaches 
-
-
-
-
-
-
+##Multimetric Matrix- idea with the goal to create a risk score by counting how many thresholds an athlete breaches 
 
