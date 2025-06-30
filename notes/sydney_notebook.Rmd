@@ -10,7 +10,7 @@ date: "2025-06-16"
 #Author Date: 06/09/2025
 #Purpose: The purpose of this notebook is to house all data set transformation, cleansing, visualization, statistical analysis, and note-taking for the 2025 CU Athletic Department Sports Science Internship Program
 
-#LAST UPDATED: 06/26/2025
+#LAST UPDATED: 06/30/2025
 library(tidyverse)
 library(readxl)
 library(aod)
@@ -69,8 +69,8 @@ filtered_Acwr <- Acwr %>%
   ungroup()
 ```
 ```{r}
-min(filtered_Acwr$Date,na.rm=TRUE)
-max(filtered_Acwr$Date,na.rm=TRUE)
+#min(filtered_Acwr$Date,na.rm=TRUE)
+#max(filtered_Acwr$Date,na.rm=TRUE)
 ```
 
 ```{r}
@@ -170,13 +170,16 @@ filter(Incident.Type=="Injury") %>%
 filter(Result.of.Sport.Participation=="Yes")
 
 filtered_incident <- subset(incident,select=c("anon_id", "Position", "Date.of.Injury...Onset.of.symptoms", "Side", "Body.Part", "Tissue.Type", "Pathology.Type", "OSICS14.Code", "OSICS10.Code", "OSICS10.Diagnosis", "Final.Diagnosis", "Result.of.Sport.Participation", "Recurrence.of.Injury", "Injury.Prognosis", "General.Mechanism", "Specific.Mechanism", "FinalDiagnosisIncidentDate", "Total.Time.Injured", "Month", "Year","Incident.Type"))[-c(1167,1168),]
+```
 
-#cut back to last year
-filtered_incident$Date <- mdy(filtered_incident$Date)
-current_date <- Sys.Date()
-start_date <- current_date- months(12)
-filtered_incident <- filtered_incident %>%
-  filter(Date >= start_date)
+```{r}
+#binary to determine if incident is HSI or not 
+incident$HSI <- ifelse(incident$OSICS14.Code %in% c("TMI","TMB","TMS"),1,0)
+
+#overall # of HSI incidences from filtered dataset
+sum(incident$HSI)
+
+#OF 1703 observations 28 of them an HSI injury occured 
 ```
 
 ```{r, warning = FALSE}
@@ -216,6 +219,17 @@ incident_HSI2 <- incident_HSI %>%
   group_by(anon_id) %>%
   summarize(Body.Part, Outcome = paste0(Date, collapse = " and ")) %>%
   separate(Outcome, c('Injury.1', 'Injury.2', 'Injury.3', 'Injury.4'), sep = ' and ')
+
+#cut back to last year
+incident_HSI$Date <- mdy(incident_HSI$Date)
+current_date <- Sys.Date()
+start_date <- current_date- months(12)
+incident_HSI_1yr <- incident_HSI %>%
+  filter(Date >= start_date)
+```
+```{r}
+#overall # of HSI incidences from filtered dataset
+sum(incident_HSI$HSI)
 ```
 
 ## 4. Performance Normative data
@@ -266,7 +280,7 @@ riskstatus2 <- riskstatus[,-c(1,5)]
 riskstatus2$Date <- mdy(riskstatus2$Date)
 current_date <- Sys.Date()
 start_date <- current_date- months(12)
-riskstatus2 <- riskstatus2 %>%
+riskstatus_1yr <- riskstatus2 %>%
   filter(Date >= start_date) #215 -> 100 obs.
 
 #binary could be useful when testing accuracy/importance of high risk status
@@ -280,6 +294,11 @@ risk_merge <- riskstatus2 %>%
 
 #min(riskstatus$Date,na.rm=TRUE)
 #max(riskstatus$Date,na.rm=TRUE)
+```
+
+```{r}
+#TOTAL # of athletes that are deemed highrisk
+sum(risk_merge$Highrisk_binary)
 ```
 
 ## Soft-Tissue Watchlist Risk Status (future validation)
@@ -392,6 +411,112 @@ filtered_wellness <- filtered_wellness %>%
 
 
 # Attempting to Merge Datasets into One filtered by date
+```{r}
+#MERGE ONLY risk_merge to incident to cover all incidents that occurred fully comparing to risk status's
+HSIincident_vs_risk <- merge(incident, risk_merge, by = c('anon_id'), all = TRUE)
+HSIincident_vs_risk2 <- HSIincident_vs_risk %>%
+  subset(select=c("anon_id","Position", "Highrisk_binary", "HSI", "Status.y")) %>%
+  na.omit()
+sum(HSIincident_vs_risk2$HSI) #total # of HSI incidents #56
+sum(HSIincident_vs_risk2$Highrisk_binary) #total # of times deemed high risk #611
+```
+```{r}
+#find rate of high risk per position also rate of HSI per position 
+#DEFENSIVE BACKS
+word_to_find_DB <- "DB"
+filtered_DB <- HSIincident_vs_risk2 %>%
+  filter(grepl(word_to_find_DB,Position,ignore.case=TRUE))
+count_of_ones_DB_high <- sum(filtered_DB$Highrisk_binary)
+count_of_ones_DB_hsi <- sum(filtered_DB$HSI)
+
+count_of_ones_DB_high # number of DB deemed high risk
+count_of_ones_DB_hsi # number of DB w/ an HSI injury 
+```
+
+```{r}
+#find rate of high risk per position also rate of HSI per position 
+#DEFENSIVE LINEMAN 
+word_to_find_DL <- "DL"
+filtered_DL <- HSIincident_vs_risk2 %>%
+  filter(grepl(word_to_find_DL,Position,ignore.case=TRUE))
+count_of_ones_DL_high <- sum(filtered_DL$Highrisk_binary)
+count_of_ones_DL_hsi <- sum(filtered_DL$HSI)
+
+count_of_ones_DL_high # number of DL deemed high risk
+count_of_ones_DL_hsi # number of DL w/ an HSI injury 
+```
+```{r}
+#find rate of high risk per position also rate of HSI per position 
+#QUARTER BACK 
+word_to_find_QB <- "QB"
+filtered_QB <- HSIincident_vs_risk2 %>%
+  filter(grepl(word_to_find_QB,Position,ignore.case=TRUE))
+count_of_ones_QB_high <- sum(filtered_QB$Highrisk_binary)
+count_of_ones_QB_hsi <- sum(filtered_QB$HSI)
+
+count_of_ones_QB_high # number of QB deemed high risk
+count_of_ones_QB_hsi # number of QB w/ an HSI injury 
+```
+```{r}
+#find rate of high risk per position also rate of HSI per position 
+#WIDE RECIEVER 
+word_to_find_WR <- "WR"
+filtered_WR <- HSIincident_vs_risk2 %>%
+  filter(grepl(word_to_find_WR,Position,ignore.case=TRUE))
+
+sum(filtered_WR$Highrisk_binary) # number of WR deemed high risk
+sum(filtered_WR$HSI) # number of WR w/ an HSI injury 
+```
+```{r}
+#find rate of high risk per position also rate of HSI per position 
+#TIGHT END  
+word_to_find_TE <- "TE"
+filtered_TE <- HSIincident_vs_risk2 %>%
+  filter(grepl(word_to_find_TE,Position,ignore.case=TRUE))
+
+sum(filtered_TE$Highrisk_binary) # number of TE deemed high risk
+sum(filtered_TE$HSI) # number of TE w/ an HSI injury 
+```
+```{r}
+#find rate of high risk per position also rate of HSI per position 
+#Specialist 
+word_to_find_Specialist <- "Specialist"
+filtered_Specialist <- HSIincident_vs_risk2 %>%
+  filter(grepl(word_to_find_Specialist,Position,ignore.case=TRUE))
+
+sum(filtered_Specialist$Highrisk_binary) # number of Specialist deemed high risk
+sum(filtered_Specialist$HSI) # number of Specialist w/ an HSI injury 
+```
+```{r}
+#find rate of high risk per position also rate of HSI per position 
+#RB
+word_to_find_RB <- "RB"
+filtered_RB <- HSIincident_vs_risk2 %>%
+  filter(grepl(word_to_find_RB,Position,ignore.case=TRUE))
+
+sum(filtered_RB$Highrisk_binary) # number of RB deemed high risk
+sum(filtered_RB$HSI) # number of RB w/ an HSI injury 
+```
+```{r}
+#find rate of high risk per position also rate of HSI per position 
+#OFFENSIVE LINEMAN
+word_to_find_OL <- "OL"
+filtered_OL <- HSIincident_vs_risk2 %>%
+  filter(grepl(word_to_find_OL,Position,ignore.case=TRUE))
+
+sum(filtered_OL$Highrisk_binary) # number of OL deemed high risk
+sum(filtered_OL$HSI) # number of OL w/ an HSI injury 
+```
+```{r}
+#find rate of high risk per position also rate of HSI per position 
+#LB
+word_to_find_LB <- "LB"
+filtered_LB <- HSIincident_vs_risk2 %>%
+  filter(grepl(word_to_find_LB,Position,ignore.case=TRUE))
+
+sum(filtered_LB$Highrisk_binary) # number of LB deemed high risk
+sum(filtered_LB$HSI) # number of LB w/ an HSI injury 
+```
 Already filtered every dataset to the past year. 
 -creating Incident Report with Start and End Dates
 
@@ -641,7 +766,7 @@ final_merge_full <- merge(final_merge_full, merge_position, by=c('anon_id','Grou
 ```{r}
 #add binary to determine if incident is HSI or not 
 final_merge_full$HSI <- ifelse(final_merge_full$OSICS14.Code %in% c("TMI","TMB","TMS"),1,0)
-#1500 observations and 58 variables 
+#1782 observations and 58 variables 
 ```
 
 ## 3 Months Prior Emphasis from Blake
@@ -727,10 +852,12 @@ filter_full3_merge <- full3 %>%
          Recurrence = ifelse(is.na(Recurrence), 'None', Recurrence),
          Time.Injured = ifelse(is.na(Time.Injured), 0, Time.Injured),
          OSICS14.Code = ifelse(is.na(OSICS14.Code), 'None', OSICS14.Code),
-         HSI = ifelse(Group > 0, 1, 0)) %>%
-  dplyr::select(-Group) %>%
-  na.omit()    #WAS (before added things) 44 0bs. & 17 variables
-           #NOW 35 Obs. & 15 variables 
+         HSI = ifelse(OSICS14.Code %in% c("TMI","TMB","TMS"),1,0)) %>%
+  dplyr::select(-Group) #%>%
+ # na.omit()   
+           #NOW 437 Obs. & 15 variables 
+
+#HSI = ifelse(Group > 0, 1, 0))
 ```
 
 ## Exploratory Analysis: descriptive stats + plots
@@ -1245,8 +1372,15 @@ library(glmnet)
 Q1. Does simply being deemed as high risk on the soft tissue watch list predict HSI incidence?
 ## 3 MONTH VALIDATION
 ```{r}
+sum(final_merge_full$HSI)      # total OBS 1782, HSI= 16/1782= 0.89% 
+sum(HSIincident_vs_risk2$HSI)  # total OBS 2487, HSI=56/2487= 2.25 %
+```
+
+```{r}
 #Stepwise validation 
 table(filter_full3_merge$Status,filter_full3_merge$HSI)
+
+table(final_merge_full$Status,filter_full3_merge$HSI)
 ```
 
 ```{r}
