@@ -10,7 +10,7 @@ date: "2025-06-16"
 #Author Date: 06/09/2025
 #Purpose: The purpose of this notebook is to house all data set transformation, cleansing, visualization, statistical analysis, and note-taking for the 2025 CU Athletic Department Sports Science Internship Program
 
-#LAST UPDATED: 06/26/2025
+#LAST UPDATED: 06/30/2025
 library(tidyverse)
 library(readxl)
 library(aod)
@@ -35,6 +35,9 @@ wellness <- read.csv("~/T2P1-data-analysis-2025/data-sets/Wellness Report FB.csv
 ```
 ```{r}
 perfnorm_byposition <- read.csv("~/T2P1-data-analysis-2025/data-sets/FB Performance Normative Data 2024.csv")  ##NEW GIVEN DATASET TO LOOK INTO
+```
+```{r}
+player_byposition <- read.csv("~/T2P1-data-analysis-2025/data-sets/deid_pos.csv")
 ```
 
 ## Data Cleaning 
@@ -69,8 +72,8 @@ filtered_Acwr <- Acwr %>%
   ungroup()
 ```
 ```{r}
-min(filtered_Acwr$Date,na.rm=TRUE)
-max(filtered_Acwr$Date,na.rm=TRUE)
+#min(filtered_Acwr$Date,na.rm=TRUE)
+#max(filtered_Acwr$Date,na.rm=TRUE)
 ```
 
 ```{r}
@@ -170,13 +173,16 @@ filter(Incident.Type=="Injury") %>%
 filter(Result.of.Sport.Participation=="Yes")
 
 filtered_incident <- subset(incident,select=c("anon_id", "Position", "Date.of.Injury...Onset.of.symptoms", "Side", "Body.Part", "Tissue.Type", "Pathology.Type", "OSICS14.Code", "OSICS10.Code", "OSICS10.Diagnosis", "Final.Diagnosis", "Result.of.Sport.Participation", "Recurrence.of.Injury", "Injury.Prognosis", "General.Mechanism", "Specific.Mechanism", "FinalDiagnosisIncidentDate", "Total.Time.Injured", "Month", "Year","Incident.Type"))[-c(1167,1168),]
+```
 
-#cut back to last year
-filtered_incident$Date <- mdy(filtered_incident$Date)
-current_date <- Sys.Date()
-start_date <- current_date- months(12)
-filtered_incident <- filtered_incident %>%
-  filter(Date >= start_date)
+```{r}
+#binary to determine if incident is HSI or not 
+incident$HSI <- ifelse(incident$OSICS14.Code %in% c("TMI","TMB","TMS"),1,0)
+
+#overall # of HSI incidences from filtered dataset
+sum(incident$HSI)
+
+#OF 1703 observations 28 of them an HSI injury occured 
 ```
 
 ```{r, warning = FALSE}
@@ -216,6 +222,17 @@ incident_HSI2 <- incident_HSI %>%
   group_by(anon_id) %>%
   summarize(Body.Part, Outcome = paste0(Date, collapse = " and ")) %>%
   separate(Outcome, c('Injury.1', 'Injury.2', 'Injury.3', 'Injury.4'), sep = ' and ')
+
+#cut back to last year
+incident_HSI$Date <- mdy(incident_HSI$Date)
+current_date <- Sys.Date()
+start_date <- current_date- months(12)
+incident_HSI_1yr <- incident_HSI %>%
+  filter(Date >= start_date)
+```
+```{r}
+#overall # of HSI incidences from filtered dataset
+sum(incident_HSI$HSI)
 ```
 
 ## 4. Performance Normative data
@@ -266,7 +283,7 @@ riskstatus2 <- riskstatus[,-c(1,5)]
 riskstatus2$Date <- mdy(riskstatus2$Date)
 current_date <- Sys.Date()
 start_date <- current_date- months(12)
-riskstatus2 <- riskstatus2 %>%
+riskstatus_1yr <- riskstatus2 %>%
   filter(Date >= start_date) #215 -> 100 obs.
 
 #binary could be useful when testing accuracy/importance of high risk status
@@ -280,6 +297,11 @@ risk_merge <- riskstatus2 %>%
 
 #min(riskstatus$Date,na.rm=TRUE)
 #max(riskstatus$Date,na.rm=TRUE)
+```
+
+```{r}
+#TOTAL # of athletes that are deemed highrisk
+sum(risk_merge$Highrisk_binary)
 ```
 
 ## Soft-Tissue Watchlist Risk Status (future validation)
@@ -392,6 +414,112 @@ filtered_wellness <- filtered_wellness %>%
 
 
 # Attempting to Merge Datasets into One filtered by date
+```{r}
+#MERGE ONLY risk_merge to incident to cover all incidents that occurred fully comparing to risk status's
+HSIincident_vs_risk <- merge(incident, risk_merge, by = c('anon_id'), all = TRUE)
+HSIincident_vs_risk2 <- HSIincident_vs_risk %>%
+  subset(select=c("anon_id","Position", "Highrisk_binary", "HSI", "Status.y")) %>%
+  na.omit()
+sum(HSIincident_vs_risk2$HSI) #total # of HSI incidents #56
+sum(HSIincident_vs_risk2$Highrisk_binary) #total # of times deemed high risk #611
+```
+```{r}
+#find rate of high risk per position also rate of HSI per position 
+#DEFENSIVE BACKS
+word_to_find_DB <- "DB"
+filtered_DB <- HSIincident_vs_risk2 %>%
+  filter(grepl(word_to_find_DB,Position,ignore.case=TRUE))
+count_of_ones_DB_high <- sum(filtered_DB$Highrisk_binary)
+count_of_ones_DB_hsi <- sum(filtered_DB$HSI)
+
+count_of_ones_DB_high # number of DB deemed high risk
+count_of_ones_DB_hsi # number of DB w/ an HSI injury 
+```
+
+```{r}
+#find rate of high risk per position also rate of HSI per position 
+#DEFENSIVE LINEMAN 
+word_to_find_DL <- "DL"
+filtered_DL <- HSIincident_vs_risk2 %>%
+  filter(grepl(word_to_find_DL,Position,ignore.case=TRUE))
+count_of_ones_DL_high <- sum(filtered_DL$Highrisk_binary)
+count_of_ones_DL_hsi <- sum(filtered_DL$HSI)
+
+count_of_ones_DL_high # number of DL deemed high risk
+count_of_ones_DL_hsi # number of DL w/ an HSI injury 
+```
+```{r}
+#find rate of high risk per position also rate of HSI per position 
+#QUARTER BACK 
+word_to_find_QB <- "QB"
+filtered_QB <- HSIincident_vs_risk2 %>%
+  filter(grepl(word_to_find_QB,Position,ignore.case=TRUE))
+count_of_ones_QB_high <- sum(filtered_QB$Highrisk_binary)
+count_of_ones_QB_hsi <- sum(filtered_QB$HSI)
+
+count_of_ones_QB_high # number of QB deemed high risk
+count_of_ones_QB_hsi # number of QB w/ an HSI injury 
+```
+```{r}
+#find rate of high risk per position also rate of HSI per position 
+#WIDE RECIEVER 
+word_to_find_WR <- "WR"
+filtered_WR <- HSIincident_vs_risk2 %>%
+  filter(grepl(word_to_find_WR,Position,ignore.case=TRUE))
+
+sum(filtered_WR$Highrisk_binary) # number of WR deemed high risk
+sum(filtered_WR$HSI) # number of WR w/ an HSI injury 
+```
+```{r}
+#find rate of high risk per position also rate of HSI per position 
+#TIGHT END  
+word_to_find_TE <- "TE"
+filtered_TE <- HSIincident_vs_risk2 %>%
+  filter(grepl(word_to_find_TE,Position,ignore.case=TRUE))
+
+sum(filtered_TE$Highrisk_binary) # number of TE deemed high risk
+sum(filtered_TE$HSI) # number of TE w/ an HSI injury 
+```
+```{r}
+#find rate of high risk per position also rate of HSI per position 
+#Specialist 
+word_to_find_Specialist <- "Specialist"
+filtered_Specialist <- HSIincident_vs_risk2 %>%
+  filter(grepl(word_to_find_Specialist,Position,ignore.case=TRUE))
+
+sum(filtered_Specialist$Highrisk_binary) # number of Specialist deemed high risk
+sum(filtered_Specialist$HSI) # number of Specialist w/ an HSI injury 
+```
+```{r}
+#find rate of high risk per position also rate of HSI per position 
+#RB
+word_to_find_RB <- "RB"
+filtered_RB <- HSIincident_vs_risk2 %>%
+  filter(grepl(word_to_find_RB,Position,ignore.case=TRUE))
+
+sum(filtered_RB$Highrisk_binary) # number of RB deemed high risk
+sum(filtered_RB$HSI) # number of RB w/ an HSI injury 
+```
+```{r}
+#find rate of high risk per position also rate of HSI per position 
+#OFFENSIVE LINEMAN
+word_to_find_OL <- "OL"
+filtered_OL <- HSIincident_vs_risk2 %>%
+  filter(grepl(word_to_find_OL,Position,ignore.case=TRUE))
+
+sum(filtered_OL$Highrisk_binary) # number of OL deemed high risk
+sum(filtered_OL$HSI) # number of OL w/ an HSI injury 
+```
+```{r}
+#find rate of high risk per position also rate of HSI per position 
+#LB
+word_to_find_LB <- "LB"
+filtered_LB <- HSIincident_vs_risk2 %>%
+  filter(grepl(word_to_find_LB,Position,ignore.case=TRUE))
+
+sum(filtered_LB$Highrisk_binary) # number of LB deemed high risk
+sum(filtered_LB$HSI) # number of LB w/ an HSI injury 
+```
 Already filtered every dataset to the past year. 
 -creating Incident Report with Start and End Dates
 
@@ -641,7 +769,7 @@ final_merge_full <- merge(final_merge_full, merge_position, by=c('anon_id','Grou
 ```{r}
 #add binary to determine if incident is HSI or not 
 final_merge_full$HSI <- ifelse(final_merge_full$OSICS14.Code %in% c("TMI","TMB","TMS"),1,0)
-#1500 observations and 58 variables 
+#1782 observations and 58 variables 
 ```
 
 ## 3 Months Prior Emphasis from Blake
@@ -727,10 +855,12 @@ filter_full3_merge <- full3 %>%
          Recurrence = ifelse(is.na(Recurrence), 'None', Recurrence),
          Time.Injured = ifelse(is.na(Time.Injured), 0, Time.Injured),
          OSICS14.Code = ifelse(is.na(OSICS14.Code), 'None', OSICS14.Code),
-         HSI = ifelse(Group > 0, 1, 0)) %>%
+         HSI = ifelse(OSICS14.Code %in% c("TMI","TMB","TMS"),1,0)) %>%
   dplyr::select(-Group) %>%
-  na.omit()    #WAS (before added things) 44 0bs. & 17 variables
-           #NOW 35 Obs. & 15 variables 
+  na.omit()#34 obs. 15 vars.
+                  #437 Obs. & 15 variables taking out na.omti()
+
+#HSI = ifelse(Group > 0, 1, 0))
 ```
 
 ## Exploratory Analysis: descriptive stats + plots
@@ -1245,47 +1375,63 @@ library(glmnet)
 Q1. Does simply being deemed as high risk on the soft tissue watch list predict HSI incidence?
 ## 3 MONTH VALIDATION
 ```{r}
-#Stepwise validation 
-table(filter_full3_merge$Status,filter_full3_merge$HSI)
+sum(final_merge_full$HSI)      # total OBS 1782, HSI= 16/1782= 0.89% 
+sum(HSIincident_vs_risk2$HSI)  # total OBS 2487, HSI=56/2487= 2.25 %
+```
+```{r}
+#Stepwise validation through 2 best combined datasets
+table(final_merge_full$Status,final_merge_full$HSI)
+
+table(HSIincident_vs_risk2$Status,HSIincident_vs_risk2$HSI)
 ```
 
 ```{r}
 #ordinal variable 
-filter_full3_merge$Status <- factor(
-  filter_full3_merge$Status,
+final_merge_full$Status <- factor(
+  final_merge_full$Status,
   levels = c("Routine", "Low", "Medium", "High"),
   ordered = TRUE
 )
 #convert recurrence column into # groups (First Recurrence=2, New Injury/Illness=1, None=0)
 #None=0, New Injury/Illness=1, First Recurrence=2
-filter_full3_merge <- filter_full3_merge %>%
-  mutate(Recurrence=case_when(
-    Recurrence=="None"~0,
-    Recurrence=="New Injury/Illness"~1,
-    Recurrence=="First recurrence"~2
-  ))  
+#final_merge_full <- final_merge_full %>%
+#  mutate(Recurrence=case_when(
+#    Recurrence=="None"~0,
+#    Recurrence=="New Injury/Illness"~1,
+#    Recurrence=="First recurrence"~2
+#  ))  
   
-filter_full3 <- filter_full3_merge %>%
+final_merge_full <- final_merge_full %>%
   mutate(Trend=case_when(
     Trend=="Up"~2,
     Trend=="Neutral"~1,
     Trend=="Down"~0
   ))               #Up=2, Down=0 ,Neutral=1
     
+```
+
+```{r}
+#ordinal variable 
+HSIincident_vs_risk2$Status <- factor(
+  HSIincident_vs_risk2$Status,
+  levels = c("Routine", "Low", "Medium", "High"),
+  ordered = TRUE
+)
 #logistic regression
-model_q1 <- glm(HSI~Status, data=filter_full3, family="binomial")
+model_q1 <- glm(HSI~Status, data=HSIincident_vs_risk2, family="binomial")
 summary(model_q1)
 exp(coef(model_q1))   #ODDS RATIO
 ```
+
 ```{r}
 library(caret)
 #model evaluation
-filter_full3$pred_prob_q1 <- predict(model_q1,type="response")
-filter_full3$pred_class_q1 <- ifelse(filter_full3$pred_prob_q1>0.5,1,0) #class w/ 0.5 threshold
+HSIincident_vs_risk2$pred_prob_q1 <- predict(model_q1,type="response")
+HSIincident_vs_risk2$pred_class_q1 <- ifelse(HSIincident_vs_risk2$pred_prob_q1>0.5,1,0) #class w/ 0.5 threshold
 
 #convert both predicted + actual to factors w/ the same levels
-pred <- factor(filter_full3$pred_class_q1, levels = c(0, 1))
-actual <- factor(filter_full3$HSI, levels = c(0, 1))
+pred <- factor(HSIincident_vs_risk2$pred_class_q1, levels = c(0, 1))
+actual <- factor(HSIincident_vs_risk2$HSI, levels = c(0, 1))
 
 #confusion matrix
 confusionMatrix(pred, actual)
@@ -1293,44 +1439,39 @@ confusionMatrix(pred, actual)
 ```{r}
 library(pROC)
 #ROC CURVE
-roc_obj <- roc(filter_full3$HSI, filter_full3$pred_prob_q1)
+roc_obj <- roc(HSIincident_vs_risk2$HSI, HSIincident_vs_risk2$pred_prob_q1)
 plot(roc_obj, main="ROC Curve", col="pink",lwd=3)
 auc(roc_obj)
 ```
 
-## 6 MONTH VALIDATION//COMPLETE
+```{r}
+#calculate proportions
+table_high <- table(HSIincident_vs_risk2$HSI[HSIincident_vs_risk2$Status=="High"])
+incidence_high <- prop.table(table_high)[2]   #P(HSI|High)
+
+table_others <- table(HSIincident_vs_risk2$HSI[HSIincident_vs_risk2$Status!="High"])
+incidence_others <- prop.table(table_others)[2]   #P(HSI|Not High)
+
+table_flag <-table(HSIincident_vs_risk2$Status=="High",HSIincident_vs_risk2$HSI)
+chisq.test(table_flag)
+fisher.test(table_flag)    # aplha=0.05
+```
+P-values < alpha therefore statistically significant. 
 
 Q2. How do components of the watch list predict HSI? subsequent//following HSI injury risk?
+##                         TRY AGAIN WITH MY BIGGER// BETTER DATASET filter_full3_merge// SEE IF RESULTS COME OUT BETTER THAT WAY 
+
 ## Modeling & Evaluations
--Dealing w/ Class Imbalances
-```{r}
-#demonstration of class imbalance that needs to be addressed 
-table(filter_full3_merge$HSI)
-prop.table(table(filter_full3_merge$HSI))
-```
-NOTE: HSI events are more rare causing a class in balance (majority class== no injury), can lead to misleading data
-```{r}
-#calculate averages to base risk flags off of 
-mean(filter_full3_merge$Nordic.MEAN.Imbalance.with.side)
-mean(filter_full3_merge$Maximum.Force)
-mean(filter_full3_merge$Nordic.Right.MAX)
-mean(filter_full3_merge$Nordic.Left.MAX)
-mean(filter_full3_merge$Overall.Wellness.Score)
-
-#convert from character to numeric
-filter_full3_merge$Time.Injured <- as.numeric(filter_full3_merge$Time.Injured)
-mean(filter_full3_merge$Time.Injured)
-```
-
 ```{r}
 #BINARY FLAGS FOR RISK
-filter_full3 <- filter_full3 %>%
- # group_by(anon_id) %>%
- # mutate(maxforce_z_self= scale(Maximum.Force)) %>%
-     #   ungroup() %>%
+filter_full3 <- filter_full3_merge %>%
+ group_by(anon_id) %>%
+ mutate(force_zscore= scale(Maximum.Force)) %>%
+ ungroup() %>%
   mutate(nordic_imbalance_flag= if_else(Nordic.MEAN.Imbalance.with.side>1.28,1,0),
          nordic_z_right= scale(Nordic.Right.MAX),
-         nordic_zleft= scale(Nordic.Left.MAX),
+         nordic_z_left= scale(Nordic.Left.MAX),
+         nordic_zscore=mean(nordic_z_left+nordic_z_right),
          time_injured_flag= if_else(Time.Injured> 13.25,1,0))
 
 #convert all categorical variables to factors 
@@ -1339,9 +1480,126 @@ filter_full3$Status <- as.factor(filter_full3$Status)
 filter_full3$HSI <- as.factor(filter_full3$HSI)
 #filter_full3$Recurrence <- as.factor(filter_full3$Recurrence)
 filter_full3$Trend <- as.factor(filter_full3$Trend)
+```
 
+```{r}
+#boxplots for visual comparison                     Highrisk_binary== high risk flag  
+#boxplot(nordic_zscore~ Highrisk_binary, data=filter_full3, main="Nordic Z-score by High Risk Status")
+
+ggplot(data=filter_full3, aes(x=Status, y=nordic_zscore))+
+  geom_smooth() +
+  geom_boxplot(width=2)+
+  labs(title="Nordic Z-score by High Risk Status")
+
+ggplot(data=filter_full3, aes(x=HSI, y=nordic_zscore))+
+  geom_violin(fill="pink")+
+  geom_boxplot(width=2)+
+  labs(title="Nordic Z-Score vs HSI Outcome")
+
+#Imbalance 
+ggplot(data=filter_full3, aes(x =HSI, y = nordic_imbalance_flag)) +
+  geom_violin(fill = "pink") +
+  geom_boxplot(width = 0.1)
+
+ggplot(data=filter_full3, aes(x = nordic_zscore, y = as.numeric(HSI))) +
+  geom_smooth() +
+  geom_boxplot(width = 3)+
+  labs(title="Injury Rate vs Nordic Z-score")
+
+#t tests
+t.test(nordic_zscore~Highrisk_binary,data=filter_full3)
+t.test(force_zscore~Highrisk_binary,data=filter_full3)  # do again with force (Maximum.Force)
+
+#display results of  t-test 
+#see if plots can look better 
+```
+
+#Q3
+##THRESHOLD EXPLORATION 
+```{r}
+#average values by group
+aggregate(nordic_zscore~Status,data=filter_full3, mean)
+aggregate(force_zscore~Status,data=filter_full3, mean)
+
+#quantiles can be used for thresholds aswell 
+quantile(filter_full3$nordic_zscore[filter_full3$Status=="High"],probs=c(0.10,0.25,0.50,0.75))
+```
+
+```{r}
+#merge position into filter_full3 with HSIincidentvsrisk2 or merge_position 
+df <- merge(filter_full3, merge_position, by="anon_id")
+df2 <- unique(df)
+```
+
+```{r}
+#now concern of different flagging (flags) needed for different positions 
+
+#compare with each different positions 
+wr <- subset(data=df2, Position="WR")
+boxplot(nordic_zscore~Highrisk_binary, data=wr, main="WR Nordic by Risk")
+
+#do with all different positions (pay special attention to positions highlgihted on the google doc)
+```
+
+```{r}
+#then summarizing tables, findings 
+
+```
+
+#looking to build models by positional grouping// build thresholds (Q3) by positions aswell ??
+```{r}
+#sort out final_merge_full to 1 position at a time
+final_merge_full_OL <- subset(final_merge_full,grepl("OL", final_merge_full$Position)) #203 obs. 60 vars.
+table(final_merge_full_OL$HSI, final_merge_full_OL$Status)  #OFFENSIVE LINEMEN
+final_merge_full_DL <- subset(final_merge_full,grepl("DL", final_merge_full$Position)) #203 obs. 60 vars.
+table(final_merge_full_DL$HSI, final_merge_full_DL$Status)  #DEFENSIVE LINEMEN
+final_merge_full_LB <- subset(final_merge_full,grepl("LB", final_merge_full$Position)) #203 obs. 60 vars.
+table(final_merge_full_LB$HSI, final_merge_full_LB$Status)  #LINEBACKERS
+
+#add row of whatever position working on and add averages to use as baseline for flagging system work Average column (11 new columns)
+```
+
+-Dealing w/ Class Imbalances
+```{r}
+#demonstration of class imbalance that needs to be addressed 
+table(final_merge_full$HSI,final_merge_full$Status)
+```
+
+NOTE: HSI events are more rare causing a class in balance (majority class== no injury), can lead to misleading data
+
+```{r}
+##NOT NEEDED ATM // MAYBE ADD LATER ON IF WOULD HELP MAKE IT EASIER # change to filter_full3
+#ordinal variable 
+final_merge_full$Status <- factor(
+  final_merge_full$Status,
+  levels = c("Routine", "Low", "Medium", "High"),
+  ordered = TRUE
+)
+  
+final_merge_full <- final_merge_full %>%
+  mutate(Trend=case_when(
+    Trend=="Up"~2,
+    Trend=="Neutral"~1,
+    Trend=="Down"~0
+  ))               #Up=2, Down=0 ,Neutral=1
+    #convert recurrence column into # groups (First Recurrence=2, New Injury/Illness=1, None=0)
+#None=0, New Injury/Illness=1, First Recurrence=2
+final_merge_full <- final_merge_full %>%
+  mutate(Recurrence=case_when(
+   Recurrence=="None"~0,
+   Recurrence=="New Injury/Illness"~1,
+   Recurrence=="First recurrence"~2
+  ))  
+#convert from character to numeric
+#convert recurrence column into # groups (First Recurrence=2, New Injury/Illness=1, None=0)
+#None=0, New Injury/Illness=1, First Recurrence=2
+final_merge_full <- final_merge_full$Time.Injured <- as.numeric(final_merge_full$Time.Injured)
+mean(final_merge_full$Time.Injured)
+```
+
+```{r}
 set.seed(22)
-#training and testing
+#training and testing                               #DATA == filter_full3 or df2
 train_idx <- createDataPartition(filter_full3$HSI, p=.80, list=FALSE)
 train <- filter_full3[train_idx,]
 test <- filter_full3[-train_idx,]
@@ -1352,6 +1610,8 @@ train_up <- upSample(x=train %>% dplyr::select(-HSI),
 #check balance 
 table(train_up$Class)   #HSI== Class
 ```
+
+##NOT NEEDED 
 ```{r}
 #convert to character labels
 train_up$Class <- factor(train_up$Class, levels = c(1,0), labels = c("Injury","NoInjury"))
@@ -1373,88 +1633,46 @@ rose_model <- train(Class~Maximum.Force + Nordic.MEAN.Imbalance.with.side +
                     trControl = ctrl,
                     metric = "ROC")
 rose_model
-```
-```{r}
+
 #predict probabilities 
 pred_probs <- predict(rose_model, newdata=test, type="prob")
-
 #ROC + AUC
 roc_obj2 <- roc(test$Class, pred_probs$Injury)
 auc(roc_obj2)
 plot(roc_obj2, main="ROC Curve- ROSE Logistic Model")
-
 #confusion matrix
 pred_class <- predict(rose_model, newdata=test)
 confusionMatrix(pred_class,test$Class)
 ```
 
-```{r}
-library(MASS)
-```
-
-##ALL THE NULL MODELS
-```{r}
-#fit null model for risk status on watch list
-null_model_watchlist <- lm(Status~NULL, data=train_up)
-#summary(null_model_watchlist)
-
-#fit null model for HSI
-null_model_HSI <- lm(Class~NULL, data=train_up)
-summary(null_model_HSI)
-
-#fit null model for subsequent HSI injury 
-null_model_recurrence <- lm(Recurrence~NULL, data=train_up)
-summary(null_model_recurrence)
-```
-
-##Basic Models
-```{r}
-#
-larger_model2 <- glm(HSI~Positional.Norm+Maximum.Velocity+Maximum.Force+ Explosive.Efforts +Modified.RSI+Nordic.Imbalance.., data=final_merge_full, family="binomial")
-summary(larger_model2)
-
-smaller_model2 <- glm(HSI~Maximum.Force+Percent.Difference.Norm+ Nordic...Difference.from.First.Test, data=filtered_full3_merge, family="binomial")
-summary(smaller_model2)
-#model3 <- glm(HSI~.-Status-Body.Part-Position-OSICS14.Code, data=final_merge_full, family="binomial")
-#summary(model3)
-
-#model_risk2 <- glm(Status~., data=final_merge_full, family="binomial")
-```
-
-##Linear: LASSO Method
-```{r}
-#input matrices 
-x <- 
-y <-
-
-y <- ifelse
-
-```
 
 ##NONLINEAR METHODS- Random Forests 
 ```{r}
-seed(22)
+set.seed(22)
 library(randomForest)
-rf_model <- randomForest(as.factor(HSI)~., data=filter_full3, ntree=500, importance=TRUE)
+rf_model <- randomForest(as.factor(Class)~., data=train_up, ntree=500, importance=TRUE)
 varlmpPlot(rf)
 
 #testing
 rf_preds <- predict(rf_model, test, type="prob")[,2]
-roc_rf <- roc(test$HSI, rf_preds)
+roc_rf <- roc(test$Class, rf_preds)
 plot(roc_rf)
 auc(roc_rf)
 ```
 
-##Decision Tree
+##Decision Tree for Threshold Exploration 
 ```{r}
-#threshold exploration
-tree_model <- rpart(HSI~., method="class", cp=0.01)
+library(rpart)
+library(rpart.plot)
+set.seed(22)
 
-rpart.plot(tree_model,extra=106)
+tree_model <- rpart(HSI~., data=filter_full3_merge, method="class", cp=0.01)
+rpart.plot(tree_model, extra=106)
 
+#test binary flags from these thresholds // rule based features
 #testing
 tree_preds <- predict(tree_model, test, type="prob")[,2]
-roc_tree <- roc(test$HSI, tree_preds)
+roc_tree <- roc(test$Class, tree_preds)
 plot(roc_tree)
 auc(roc_tree)
 ```
@@ -1468,10 +1686,10 @@ test_xgb <- test %>%
   mutate(HSI= as.numeric(as.character(HSI)))
 
 #matrix inputs
-dtrain <- xgb.DMatrix(data = as.matrix(train_xgb[, c("nordic_z_self", "avg_imbalance", "position_norm_diff")]),
-                      label = train_xgb$hsi_incident)
-dtest <- xgb.DMatrix(data = as.matrix(test_xgb[, c("nordic_z_self", "avg_imbalance", "position_norm_diff")]),
-                     label = test_xgb$hsi_incident)
+dtrain <- xgb.DMatrix(data = as.matrix(train_xgb[, c("nordic_zscore", "force_zscore")]),
+                      label = train_xgb$HSI)
+dtest <- xgb.DMatrix(data = as.matrix(test_xgb[, c("nordic_zscore","force_zscore")]),
+                     label = test_xgb$HSI)
 
 #train model
 xgb_boost_model <- xgbboost(data=dtrain,objective="binary:logistic", nrounds=100,verbose=0)
@@ -1491,34 +1709,6 @@ auc(roc_xgb)
 
 ##Threshold Optimzation 
 Q3: Can we find better thresholds for flagging risks?
-```{r}
-#boxplots//violin plots
-#nordic zscore vs HSI
-ggplot(data=, x=HSI, y=nordic_z_self)+
-  geom_violin(fill="pink")+
-  geom_boxplot(width=0.2)+
-  labs(title="Nordic Z-Score vs HSI Outcome")
-
-#Imbalance 
-ggplot(data=, aes(x = hsi_incident, y = avg_imbalance)) +
-  geom_violin(fill = "pink") +
-  geom_boxplot(width = 0.1)
-
-#lots more plots
-```
-
-```{r}
-library(rpart)
-library(rpart.plot)
-#determine threshold w/ decision tree// CART Model
-
-tree_model2 <- rpart(HSI~., data=data, method="class", cp=0.01)
-rpart.plot(tree_model2, extra=106)
-
-#test binary flags from these thresholds // rule based features 
-data <- data %>%
-  #same flags created before
-```
 
 ```{r}
 #logistic regression with flags
@@ -1544,30 +1734,10 @@ model_flags <- glm(HSI~flags set, data=data, family="binomial")
 #AUC's
 auc_watchlist <- roc(data$HSI, predict(model_watchlist, type="response"))
 auc_flags <- roc(data$HSI, predict(model_flags, type="response"))
-
 plot(auc_watchlist,col,col="pink")
 lines(auc_flags, col="blue")
 legend("bottomright", legend=c("Watch List","Flag Model"), col=c("pink","blue"),lwd=2)
 ```
 
-
-
-
-
-##Multimetric Matrix
-```{r}
-#goal to create a risk score by counting how many thresholds an athlete breaches 
-
-
-```
-
-
-
-
-
-
-## Further Validation & Comparision  
-
-
-
+##Multimetric Matrix- idea with the goal to create a risk score by counting how many thresholds an athlete breaches 
 
