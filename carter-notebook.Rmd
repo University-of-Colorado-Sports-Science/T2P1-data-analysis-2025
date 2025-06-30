@@ -19,6 +19,9 @@ library(tidyverse)
 library(tidyr)
 library(dplyr)
 library(ggplot2)
+```
+
+```{r}
 library(MASS)
 library(caret)
 library(pROC)
@@ -46,6 +49,7 @@ strengthtest <- read_csv('data-sets/data-sets-uncompressed/Strength Testing Data
 VALD <- read_csv('data-sets/data-sets-uncompressed/VALD - Performance Test FB.csv')
 wellness <- read_csv('data-sets/data-sets-uncompressed/Wellness Report FB.csv')
 positional <- read_csv('data-sets/data-sets-uncompressed/Positional Performance Normative.csv')
+positions <- read_csv('data-sets/data-sets-uncompressed/deid_pos.csv')
 ```
 
 
@@ -193,13 +197,19 @@ strgth_merge <- strengthtest %>%
 ```{r}
 #selects variables of interest and renames Sport.Position to Position
 Vald <- VALD %>%
-  transmute(anon_id, Session.Date, Position = Sport.Position, Trend, Maximum.Force, Nordic.Left.MAX, Nordic.Right.MAX, Nordic.MEAN.Imbalance.with.side, Nordic...Difference.from.First.Test, Nordic.Season.Average.Left, Nordic.Season.Average.Right, Nordic.MEAN.Imbalance, Hip.Abd.Trend, Hip.Abd.Percent.Difference.Norm, L3.Hip.Abduction.Mean.Imbalance, Hip.Add.Trend, Hip.Add.Percent.Difference.Norm, L3.Hip.Adduction.Mean.Imbalance, L3.Bilateral.Hip.Abduction.Adduction.Ratio)
+  transmute(anon_id, Session.Date, Position = Sport.Position, Trend, Maximum.Force, Nordic.Left.MAX, Nordic.Right.MAX, Nordic.MEAN.Imbalance.with.side, Nordic...Difference.from.First.Test, Nordic.Season.Average.Left, Nordic.Season.Average.Right, Nordic.MEAN.Imbalance, Hip.Abd.Trend, Hip.Abd.Percent.Difference.Norm, L3.Hip.Abduction.Mean.Imbalance, Hip.Add.Trend, Hip.Add.Percent.Difference.Norm, L3.Hip.Adduction.Mean.Imbalance, L3.Bilateral.Hip.Abduction.Adduction.Ratio) %>%
+  mutate(Position = ifelse(Position == 'DB|WR', 'DB', Position))
 
-#selects only the necessary columns from positional dataset
+#selects only the necessary columns from positional dataset and positions dataset
 positional2 <- positional %>%
   transmute(Position, Nordic.Average.Norm = `Nordic Average`)
 
+#positions2 <- positions %>%
+#  select(-...1)
+
 #merges these two datasets and calculates the percent difference norm for the missing values
+#Vald <- left_join(Vald, positions2, by = 'anon_id')
+
 Vald <- merge(Vald, positional2, by = c('Position'), all = TRUE)
 
 Vald <- Vald %>%
@@ -345,7 +355,7 @@ merge_vald <- merge_vald %>%
   filter(Group != 'After') 
 
 merge_vald <- merge_vald %>%
-  group_by(anon_id, Group) %>%
+  group_by(anon_id, Group, Position) %>%
   summarise(Maximum.Force = mean(Maximum.Force, na.rm = TRUE),
             Perc.Diff.Norm = mean(Perc.Diff.Norm, na.rm = TRUE),
             Trend = mean(Trend, na.rm = TRUE),
@@ -990,7 +1000,7 @@ dash <- dash %>%
          HSI = ifelse(Group > 0, 1, 0),
          Prev.HSI = ifelse(is.na(Prev.HSI), 0, Prev.HSI),
          Status = as.factor(ifelse(is.na(Status), 'None', Status))) %>%
-  dplyr::select(anon_id, Prev.Injuries, Prev.HSI, Perc.Diff.Norm, Nordic.Mean.Imbalance, Trend, Status, HSI) %>%
+  dplyr::select(anon_id, Position, Prev.Injuries, Prev.HSI, Perc.Diff.Norm, Nordic.Mean.Imbalance, Trend, Status, HSI) %>%
   mutate(Prev.Injury.Num = ifelse(Prev.Injuries == 'None', 0, sapply(strsplit(Prev.Injuries, " and "), length)))
 
 #recreating the dataset without NAs for visualizations, should contain 178 observations
@@ -1015,6 +1025,13 @@ dash_final %>%
             Avg.Trend = mean(Trend),
             Previous.HSI = mean(as.numeric(Prev.HSI)),
             HSI.Occured = mean(HSI))
+```
+
+```{r}
+dash_2 <- left_join(dash_final, threshs, by = 'Position') %>%
+  filter(Position == 'RB' | Position == 'LB' | Position == 'DB') %>%
+  mutate(Flag.Imbalance = ifelse(Nordic.Mean.Imbalance > Imbalance.Thresh, 1, 0),
+         Flag.Diff.Norm = ifelse(Perc.Diff.Norm < Diff.Norm.Thresh, 1, 0))
 ```
 
 From this summary it almost looks like players are deemed medium risk when there is no previous HSI but the other variables look alarming. Players deemed low risk on average have similar differences from norm but lower imbalance and higher trend and only one observation with a previous injury. 
@@ -1099,8 +1116,335 @@ summary(model)
 
 Previous hamstring related injury is a good predictor, also mentioned in literature review I beleive. Of the 57 players that experienced HSI in this dataset, 20 of those injuries came after a previous hamstring related injury. This means in the data provided, around 35.09% of the HSI came following a hamstring related injury (same or different leg).
 
+## Prevalance of HSI in Both Populations:
 
-## 3 Months Prior Emphasis from Blake
+From down below we know that HSI occured after being deemed high risk in 7 of 33 athletes (0.2121212).
+
+```{r}
+all_play <- unique(VALD$anon_id)
+
+all_no_hr <- setdiff(all_play, high_risk)
+```
+
+```{r}
+incident_nohr <- Incident %>%
+  filter(OSICS14.Code %in% hamstring_OSICS14, anon_id %in% all_no_hr) %>%
+  group_by(anon_id, Date.of.Injury...Onset.of.symptoms) %>%
+  mutate(Total.Time.Injured = sum(Total.Time.Injured, na.rm = TRUE),
+         Date = as.Date(Date.of.Injury...Onset.of.symptoms, format = '%m/%d/%Y')) %>%
+  ungroup() %>%
+  group_by(across(everything())) %>%
+  summarise(.groups = 'drop') %>%
+  group_by(anon_id) %>%
+  summarize(count = n())
+
+incident_all <- Incident %>%
+  filter(OSICS14.Code %in% hamstring_OSICS14, anon_id %in% all_play) %>%
+  group_by(anon_id, Date.of.Injury...Onset.of.symptoms) %>%
+  mutate(Total.Time.Injured = sum(Total.Time.Injured, na.rm = TRUE),
+         Date = as.Date(Date.of.Injury...Onset.of.symptoms, format = '%m/%d/%Y')) %>%
+  ungroup() %>%
+  group_by(across(everything())) %>%
+  summarise(.groups = 'drop') %>%
+  group_by(anon_id) %>%
+  summarize(count = n())
+```
+
+In those not deemed high risk there are 235 athletes and only 14 unique athletes suffered HSI (0.05531915).
+
+In the whole population there are 268 athletes and only 38 unique instances of HSI which is (0.141791). 
+
+### Fisher Test:
+
+```{r}
+table_1 <- matrix(c(7, 33 - 7, nrow(incident_all), length(all_play) - nrow(incident_all)), nrow = 2, byrow = TRUE)
+table_2 <- matrix(c(7, 33 - 7, nrow(incident_nohr), length(all_no_hr) - nrow(incident_nohr)), nrow = 2, byrow = TRUE)
+
+fisher.test(table_1, alternative = 'greater')
+fisher.test(table_2, alternative = 'greater')
+```
+
+When comparing the prevalance of HSI in high risk athletes vs the total population inluding the high risk athletes the p-value is 0.2039 meaning that there is not a ton of statistical evidence that the prevalance of HSI in high risk athletes is greater than the prevalance in the entire population.
+
+When comparing the prevalance of HSI in high risk athletes vs all other athletes not deemed high risk the p-value is 0.007498 which shows high statistical evidence that the prevalance of HSI in righ risk athletes is greater than the prevalance of all other athletes. 
+
+However, once again, 19 of these tests were done on 02/27/25 or later and the incident report only goes until April 22, 2025 so there could have been more injuries that occured afterwards unkown to us.
+
+
+## Prevalances of Other Measures by Position (All Time):
+
+```{r}
+Vald_prev <- Vald %>%
+  mutate(HR = ifelse(anon_id %in% high_risk, 1, 0),
+         HSI = ifelse(anon_id %in% players_HSI, 1, 0),
+         Trend.Num = ifelse(Trend == 'Neutral', 0, ifelse(Trend == 'Up', 1, -1)))
+```
+
+```{r}
+QBs <- Vald_prev %>%
+  filter(Position == 'QB')
+RBs <- Vald_prev %>%
+  filter(Position == 'RB')
+WRs <- Vald_prev %>%
+  filter(Position == 'WR')
+TEs <- Vald_prev %>%
+  filter(Position == 'TE')
+OLs <- Vald_prev %>%
+  filter(Position == 'OL')
+DBs <- Vald_prev %>%
+  filter(Position == 'DB')
+LBs <- Vald_prev %>%
+  filter(Position == 'LB')
+DLs <- Vald_prev %>%
+  filter(Position == 'DL')
+```
+
+
+```{r}
+c <- Vald_prev %>%
+  group_by(HR, Position) %>%
+  summarize(Avg.Max.Force = mean(Maximum.Force, na.rm = TRUE),
+            Avg.Imbalance = mean(Nordic.MEAN.Imbalance, na.rm = TRUE),
+            Avg.Perc.Diff.Norm = mean(Perc.Diff.Norm, na.rm = TRUE),
+            count = n())
+```
+
+No specialists were deemed high risk    
+
+```{r}
+t.test(Maximum.Force ~ HR, data = QBs)
+t.test(Maximum.Force ~ HR, data = RBs)
+t.test(Maximum.Force ~ HR, data = WRs)
+t.test(Maximum.Force ~ HR, data = TEs)
+t.test(Maximum.Force ~ HR, data = OLs)
+t.test(Maximum.Force ~ HR, data = DBs)
+t.test(Maximum.Force ~ HR, data = LBs)
+t.test(Maximum.Force ~ HR, data = DLs)
+```
+
+Difference in maximum force between HR and other appears to be statistically significant for TEs, OLs, DBs, LBs, and DLs. For TEs and QBs the average maximum force for those who were deemed high risk is actually higher than that of those not deemed high risk.  
+
+```{r}
+t.test(Maximum.Force ~ HSI, data = QBs)
+t.test(Maximum.Force ~ HSI, data = RBs)
+t.test(Maximum.Force ~ HSI, data = WRs)
+t.test(Maximum.Force ~ HSI, data = TEs)
+t.test(Maximum.Force ~ HSI, data = OLs)
+t.test(Maximum.Force ~ HSI, data = DBs)
+t.test(Maximum.Force ~ HSI, data = LBs)
+t.test(Maximum.Force ~ HSI, data = DLs)
+```
+
+If we do t-test for maximum force grouped by HSI occurence the p-values are a lot more significant. DLs are the only very obviously not significant and QBs are next but have a far lower p-value than DLS. 
+
+```{r}
+t.test(Nordic.MEAN.Imbalance ~ HR, data = QBs)
+t.test(Nordic.MEAN.Imbalance ~ HR, data = RBs)
+t.test(Nordic.MEAN.Imbalance ~ HR, data = WRs)
+t.test(Nordic.MEAN.Imbalance ~ HR, data = TEs)
+t.test(Nordic.MEAN.Imbalance ~ HR, data = OLs)
+t.test(Nordic.MEAN.Imbalance ~ HR, data = DBs)
+t.test(Nordic.MEAN.Imbalance ~ HR, data = LBs)
+t.test(Nordic.MEAN.Imbalance ~ HR, data = DLs)
+```
+
+In terms of avg imbalance RBs, WRs, DBs, and LBs are statistically significant.
+
+```{r}
+#t.test(Nordic.MEAN.Imbalance ~ HSI, data = QBs)
+t.test(Nordic.MEAN.Imbalance ~ HSI, data = RBs, alternative = 'less')
+t.test(Nordic.MEAN.Imbalance ~ HSI, data = WRs, alternative = 'less')
+#t.test(Nordic.MEAN.Imbalance ~ HSI, data = TEs)
+#t.test(Nordic.MEAN.Imbalance ~ HSI, data = OLs)
+t.test(Nordic.MEAN.Imbalance ~ HSI, data = DBs, alternative = 'less')
+t.test(Nordic.MEAN.Imbalance ~ HSI, data = LBs, alternative = 'less')
+#t.test(Nordic.MEAN.Imbalance ~ HSI, data = DLs)
+```
+
+Imbalance apppears to be significant in regards to HSI in RBs, WRs, DBs, LBs, with those with HSI having on average higher imbalance in all of these position groups with 95% confidence.
+
+Threshold Example: RB 9.243539 (upper bound + mean group 0) 
+Threshold Example: WR 12.5772 (upper bound + mean group 0)
+Threshold Example: DB 12.6257 (upper bound + mean group 0)
+Threshold Example: LB 9.93417 (upper bound + mean group 0)
+
+```{r}
+Position <- c('QB', 'RB', 'WR', 'TE', 'OL', 'DB', 'LB', 'DL')
+Imbalance.Thresh <- c(NA, 9.243539, 12.5772, NA, NA, 12.6257, 9.93417, NA)
+
+threshs <- data.frame(Position, Imbalance.Thresh)
+```
+
+```{r, warning = FALSE}
+ggplot(WRs, aes(Nordic.MEAN.Imbalance, fill = as.factor(HSI))) + 
+  geom_histogram(position = 'identity', alpha = 0.5, bins = 20) + 
+  scale_fill_manual(values = c('black', '#CFB87C')) + 
+  labs(title = 'Nordic Imbalance vs HSI Insidence (All Time) for WRs',
+       x = 'Nordic Mean Imbalance (Absolute Value)',
+       y = 'Number of WRs',
+       fill = 'HSI Occurence') + 
+  geom_vline(xintercept = 12.5772, col = 'black', linetype = 'dashed') +
+  theme_bw()
+```
+
+```{r, warning = FALSE}
+ggplot(WRs, aes(Nordic.MEAN.Imbalance, fill = as.factor(HR))) + 
+  geom_histogram(position = 'identity', alpha = 0.5, bins = 20) + 
+  scale_fill_manual(values = c('black', '#CFB87C')) + 
+  labs(title = 'Nordic Imbalance vs High Risk Status (All Time) for WRs',
+       x = 'Nordic Mean Imbalance (Absolute Value)',
+       y = 'Number of WRs',
+       fill = 'High Risk Status') + 
+  geom_vline(xintercept = 12.5772, col = 'black', linetype = 'dashed') +
+  theme_bw()
+```
+
+
+```{r}
+t.test(Perc.Diff.Norm ~ HR, data = QBs)
+t.test(Perc.Diff.Norm ~ HR, data = RBs)
+t.test(Perc.Diff.Norm ~ HR, data = WRs)
+t.test(Perc.Diff.Norm ~ HR, data = TEs)
+t.test(Perc.Diff.Norm ~ HR, data = OLs)
+t.test(Perc.Diff.Norm ~ HR, data = DBs)
+t.test(Perc.Diff.Norm ~ HR, data = LBs)
+t.test(Perc.Diff.Norm ~ HR, data = DLs)
+```
+
+Significant: WRs, TEs, OLs, DBs, LBs, DLs
+
+```{r}
+#t.test(Perc.Diff.Norm ~ HSI, data = QBs)
+t.test(Perc.Diff.Norm ~ HSI, data = RBs, alternative = 'greater')
+#t.test(Perc.Diff.Norm ~ HSI, data = WRs)
+t.test(Perc.Diff.Norm ~ HSI, data = TEs, alternative = 'less')
+t.test(Perc.Diff.Norm ~ HSI, data = OLs, alternative = 'greater')
+t.test(Perc.Diff.Norm ~ HSI, data = DBs, alternative = 'greater')
+t.test(Perc.Diff.Norm ~ HSI, data = LBs, alternative = 'greater')
+#t.test(Perc.Diff.Norm ~ HSI, data = DLs)
+```
+
+Significant: RBs, TEs (not great), OLs, DBs, LBs
+
+Threshold Example: RB -9.382656 (lower bound - mean group 0)
+Threshold Example: OL -7.424226 (lower bound - mean group 0)
+Threshold Example: DB -15.15471 (lower bound - mean group 0)
+Threshold Example: LB -15.4924 (lower bound - mean group 0)
+
+```{r}
+Diff.Norm.Thresh <- c(NA, -9.382656, NA, NA, -7.424226, -15.15471, -15.4924, NA)
+
+threshs <- cbind(threshs, Diff.Norm.Thresh)
+```
+
+
+```{r}
+t.test(Trend.Num ~ HR, data = QBs)
+t.test(Trend.Num ~ HR, data = RBs)
+t.test(Trend.Num ~ HR, data = WRs)
+t.test(Trend.Num ~ HR, data = TEs)
+t.test(Trend.Num ~ HR, data = OLs)
+t.test(Trend.Num ~ HR, data = DBs)
+t.test(Trend.Num ~ HR, data = LBs)
+t.test(Trend.Num ~ HR, data = DLs)
+```
+
+Trend only is significant for high risk in DLs, DBs, QBs 
+
+```{r}
+t.test(Trend.Num ~ HSI, data = QBs)
+t.test(Trend.Num ~ HSI, data = RBs)
+t.test(Trend.Num ~ HSI, data = WRs)
+t.test(Trend.Num ~ HSI, data = TEs)
+t.test(Trend.Num ~ HSI, data = OLs)
+t.test(Trend.Num ~ HSI, data = DBs)
+t.test(Trend.Num ~ HSI, data = LBs)
+t.test(Trend.Num ~ HSI, data = DLs)
+```
+
+QBs, WRs and DL, DL is very strong
+
+```{r}
+t.test(Hip.Abd.Percent.Difference.Norm ~ HR, data = QBs)
+t.test(Hip.Abd.Percent.Difference.Norm ~ HR, data = RBs)
+t.test(Hip.Abd.Percent.Difference.Norm ~ HR, data = WRs)
+t.test(Hip.Abd.Percent.Difference.Norm ~ HR, data = TEs)
+t.test(Hip.Abd.Percent.Difference.Norm ~ HR, data = OLs)
+t.test(Hip.Abd.Percent.Difference.Norm ~ HR, data = DBs)
+t.test(Hip.Abd.Percent.Difference.Norm ~ HR, data = LBs)
+t.test(Hip.Abd.Percent.Difference.Norm ~ HR, data = DLs)
+```
+
+Very little data for hip strength but from this very small sample could be a use for Hip abduction percent difference from norm for OLs (16.076 degrees of freedom: very small). 
+
+## Catapult Data
+
+```{r}
+catapult_prev <- catapult_merge %>%
+  mutate(Position = case_when(
+    Position == 'ATHLETE' | Position == 'SAF' | Position == 'CB' ~ 'DB',
+    Position == 'ILB' | Position == 'BUCK' ~ 'LB',
+    Position == 'DE' | Position == 'DT' ~ 'DL',
+    TRUE ~ Position
+  ),
+         HR = ifelse(anon_id %in% high_risk, 1, 0),
+         HSI = ifelse(anon_id %in% players_HSI, 1, 0))
+```
+
+```{r}
+QBs_c <- catapult_prev %>%
+  filter(Position == 'QB')
+RBs_c <- catapult_prev %>%
+  filter(Position == 'RB')
+WRs_c <- catapult_prev %>%
+  filter(Position == 'WR')
+TEs_c <- catapult_prev %>%
+  filter(Position == 'TE')
+OLs_c <- catapult_prev %>%
+  filter(Position == 'OL')
+DBs_c <- catapult_prev %>%
+  filter(Position == 'DB')
+LBs_c <- catapult_prev %>%
+  filter(Position == 'LB')
+DLs_c <- catapult_prev %>%
+  filter(Position == 'DL')
+```
+
+```{r}
+t.test(Max.Acceleration ~ HR, data = QBs_c)
+t.test(Max.Acceleration ~ HR, data = RBs_c)
+t.test(Max.Acceleration ~ HR, data = WRs_c)
+t.test(Max.Acceleration ~ HR, data = TEs_c)
+t.test(Max.Acceleration ~ HR, data = OLs_c)
+t.test(Max.Acceleration ~ HR, data = DBs_c)
+t.test(Max.Acceleration ~ HR, data = LBs_c)
+t.test(Max.Acceleration ~ HR, data = DLs_c)
+```
+
+Max acceleration could be good
+
+```{r}
+t.test(Max.Acceleration ~ HSI, data = QBs_c)
+t.test(Max.Acceleration ~ HSI, data = RBs_c)
+t.test(Max.Acceleration ~ HSI, data = WRs_c)
+t.test(Max.Acceleration ~ HSI, data = TEs_c)
+t.test(Max.Acceleration ~ HSI, data = OLs_c)
+t.test(Max.Acceleration ~ HSI, data = DBs_c)
+t.test(Max.Acceleration ~ HSI, data = LBs_c)
+t.test(Max.Acceleration ~ HSI, data = DLs_c)
+```
+
+Significant for defensive players: DBs with HSI have on average a higher max acceleration, opposite is true for other defensive players
+
+## Previous Injury
+
+```{r}
+t.test(Prev.Injury.Num ~ HSI, data = dash)
+```
+
+There is some signficance to previous lower injury number.
+
+# 3 Months Prior Emphasis from Blake
 
 
 ```{r, warning = FALSE}
