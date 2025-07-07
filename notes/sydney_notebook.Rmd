@@ -2040,21 +2040,3 @@ roc_rf <- roc(test$Class, rf_preds)
 plot(roc_rf)
 auc(roc_rf)
 ```
-
-##Decision Tree for Threshold Exploration
-
-```{r}
-library(rpart)
-library(rpart.plot)
-set.seed(22)
-
-tree_model <- rpart(HSI~., data=filter_full3_merge, method="class", cp=0.01)
-rpart.plot(tree_model, extra=106)
-
-#test binary flags from these thresholds // rule based features
-#testing
-tree_preds <- predict(tree_model, test, type="prob")[,2]
-roc_tree <- roc(test$Class, tree_preds)
-plot(roc_tree)
-auc(roc_tree)
-```
