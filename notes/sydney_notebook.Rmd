@@ -1529,18 +1529,24 @@ subsequent//following HSI injury risk?
 start <- left_join(player_byposition, riskstatus2, by=c("anon_id"))
 start1 <- start %>%
   na.omit()    #143obs.
-perf <- subset(perfnorm, select=c(anon_id,Eccentric.Peak.Power...Relative))
+perf <- subset(perfnorm, select=c(anon_id,Eccentric.Peak.Power...Relative)) #622 obs.
+perf <- perf %>%
+  group_by(anon_id) %>%
+  summarise(Eccentric.Peak.Power...Relative=mean(Eccentric.Peak.Power...Relative, na.rm=TRUE))
+
 #variables i want all grouped down to individual player ID (anon_id)
 vAld <- subset(VALD, select=c(anon_id,Nordic.Left.Z.Score,Nordic.Right.Z.Score,Maximum.Force, Nordic.MEAN.Imbalance.with.side,Trend,Positional.Norm,Percent.Difference.Norm)) 
                                #adding Trend + Positional.Norm +Percent.Difference.Norm
 vaLd <- vAld %>%
-  na.omit() %>%          #136obs
+  na.omit() %>% #136obs
   group_by(anon_id) %>%
   summarise(Avg.Nordic.Left.Z.Score= mean(Nordic.Left.Z.Score, na.rm=TRUE),
             Avg.Nordic.Right.Z.Score= mean(Nordic.Right.Z.Score, na.rm=TRUE),
            Avg.Maximum.Force= mean(Maximum.Force, na.rm=TRUE),
-           nordic_imbalance_score= mean(Nordic.MEAN.Imbalance.with.side, na.rm=TRUE)) %>%
-  mutate(nordic_imbalance_score=scale(nordic_imbalance_score))
+           nordic_imbalance_score= scale(Nordic.MEAN.Imbalance.with.side),
+           Trend=Trend,
+           Positional.Norm=mean(Positional.Norm,na.rm=TRUE),
+           Percent.Difference.Norm= mean(Percent.Difference.Norm, na.rm=TRUE)) #367 obs.
 
 wEll <- subset(wellness, select=c(anon_id, Overall.Wellness.Score))
 wEll <- wEll %>%
@@ -1557,8 +1563,9 @@ Incid <- na.omit(incid)
 ```{r}
 #MERGE start1, wEll, vaLd, 
 thresh_data <- merge(wEll, vaLd, by=c("anon_id"))
-thresh_data1 <- merge(thresh_data, start1, by=c("anon_id"))
-thresh_data_final <- merge(thresh_data1, Incid, by=c("anon_id"))  #1698obs. vs 15 vars. w/ HSI
+thresh_data1 <- merge(thresh_data, start1, by=c("anon_id"))  #507 obs.
+thresh_data2 <- merge(thresh_data1, perf, by=c("anon_id"))
+thresh_data_final <- merge(thresh_data2, Incid, by=c("anon_id"))  #8889obs. vs 18 vars. w/ HSI
 
 #binary to determine if incident is HSI or not 
 thresh_data_final$HSI <- ifelse(thresh_data_final$OSICS14.Code %in% c("TMI","TMB","TMS"),1,0)
@@ -1579,6 +1586,12 @@ thresh_data_final <- thresh_data_final %>%
     Recurrence.of.Injury=="None"~0,
     Recurrence.of.Injury=="New Injury/Illness"~1,
     Recurrence.of.Injury=="First recurrence"~2))
+
+thresh_data_final <- thresh_data_final %>%
+  mutate(Trend=case_when(
+    Trend=="Down"~0,
+    Trend=="Neutral"~1,
+    Trend=="Up"~2))
 ```
 
 ```{r}
@@ -1592,7 +1605,7 @@ thresh_final <- thresh_data_final %>%
          nordic_zscore=mean(Avg.Nordic.Left.Z.Score+Avg.Nordic.Right.Z.Score),
          force_zscore= scale(Avg.Maximum.Force),
          #time_injured_flag= if_else(Time.Injured> 13.25,1,0),
-         #trend_flag=if_else(Trend<1,1,0),   #1 is meaning it is a concerning trend (DOWN)
+         trend_flag=if_else(Trend<1,1,0),   #1 is meaning it is a concerning trend (DOWN)
          recurrence_flag=if_else(Recurrence.of.Injury>1,1,0), #concerning aka 2nd injury 
          mechanism_flag=if_else(General.mechanism>=1,1,0))   #flag goes up for contact sport
 
