@@ -2058,27 +2058,3 @@ roc_tree <- roc(test$Class, tree_preds)
 plot(roc_tree)
 auc(roc_tree)
 ```
-
-##XG Boosting -powerful machine learning method
-
-```{r}
-library(xgboost)
-train_xgb <- train_up %>%
-  mutate(HSI= as.numeric(as.character(HSI)))
-test_xgb <- test %>%
-  mutate(HSI= as.numeric(as.character(HSI)))
-
-#matrix inputs
-dtrain <- xgb.DMatrix(data = as.matrix(train_xgb[, c("nordic_zscore", "force_zscore")]),
-                      label = train_xgb$HSI)
-dtest <- xgb.DMatrix(data = as.matrix(test_xgb[, c("nordic_zscore","force_zscore")]),
-                     label = test_xgb$HSI)
-
-#train model
-xgb_boost_model <- xgbboost(data=dtrain,objective="binary:logistic", nrounds=100,verbose=0)
-#testing
-pred_xgb <- predict(xgb_boost_model, dtest)
-roc_xgb <- roc(test_xgb$HSI,pred_xgb)
-plot(roc_xgb)
-auc(roc_xgb)
-```
