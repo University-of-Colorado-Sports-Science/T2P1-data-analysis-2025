@@ -874,13 +874,13 @@ HSI_3_months <- incident_HSI %>%
 ### 2. Merging VALD
 
 ```{r}
-merge_vald <- merge(HSI_3_months, vald_merge, by = c('anon_id'), all = TRUE)
+merge_vald2 <- merge(HSI_3_months, vald_merge, by = c('anon_id'), all = TRUE)
 
-merge_vald <- merge_vald %>%
+merge_vald2 <- merge_vald2 %>%
   mutate(Group = ifelse(Injury.1.Start <= Date & Date <= Injury.1, 1, ifelse(Injury.2.Start <= Date & Date <= Injury.2, 2, ifelse(Injury.3.Start <= Date & Date <= Injury.3, 3, ifelse(Injury.4.Start <= Date & Date <= Injury.4, 4, ifelse(Date > Injury.4, 'After', 0)))))) %>%
   filter(is.na(Group) | Group != 'After')
 
-merge_vald <- merge_vald %>%
+merge_vald2 <- merge_vald2 %>%
   group_by(anon_id, Group) %>%
   summarise(Maximum.Force = mean(Maximum.Force, na.rm = TRUE),
             Percent.Difference.Norm = mean(Perc.Diff.Norm, na.rm = TRUE),
@@ -938,7 +938,7 @@ filter_full3_merge <- full3 %>%
                   #437 Obs. & 15 variables taking out na.omti()
 ```
 
-### Exploritory Analysis
+### Exploratory Analysis
 
 ```{r}
 #MERGE Incident and Riskstatus datasets
@@ -1126,10 +1126,11 @@ mean(length_time1$Test.to.HSI)
 
 #visualizing using a bar plot 
 ggplot(length_time1, aes(x = reorder(anon_id, Test.to.HSI), y = Test.to.HSI)) + 
-  geom_col(fill = '#CFB87C', color = 'black', position = "identity", alpha = 0.7) +
+  geom_col(fill = '#CFB87C', color = 'black', position = "identity", alpha = 0.75) +
   labs(title = 'Time from Test to HSI (High Risk)',
        x = 'Player Anon ID',
        y = 'Days After Being Deemed High Risk') + 
+  geom_text(aes(label = Test.to.HSI), vjust = -0.5, size = 2.5) + 
   theme_bw()
 ```
 
@@ -1831,9 +1832,9 @@ incident_all <- filtered_incident %>%
 
 Using the number of rows within these datasets above we can determine the number of unique athletes that suffered HSI within each population.
 
-In those not deemed high risk there are 235 athletes and only 14 unique athletes suffered HSI (0.05531915).
+In those not deemed high risk there are 235 athletes and only 12 unique athletes suffered HSI (0.05106383).
 
-In the whole population there are 268 athletes and only 38 unique instances of HSI which is (0.141791). 
+In the whole population there are 268 athletes and only 34 unique instances of HSI which is (0.1268657). 
 
 ### Fisher Test:
 
@@ -1849,9 +1850,23 @@ fisher.test(table_1, alternative = 'greater')
 fisher.test(table_2, alternative = 'greater')
 ```
 
-When comparing the prevalance of HSI in high risk athletes vs the total population inluding the high risk athletes the p-value is 0.2039 meaning that there is not a ton of statistical evidence that the prevalance of HSI in high risk athletes is greater than the prevalance in the entire population.
+```{r}
+df <- as.data.frame(as.table(table_2)) %>%
+  mutate(Var1 = ifelse(Var1 == 'A', 'High Risk', 'Not High Risk'),
+         Var2 = ifelse(Var2 == 'A', 'HSI', 'No HSI'))
+colnames(df) <- c("Risk Determination", "Outcome", "Count")
 
-When comparing the prevalance of HSI in high risk athletes vs all other athletes not deemed high risk the p-value is 0.007498 which shows high statistical evidence that the prevalance of HSI in righ risk athletes is greater than the prevalance of all other athletes. 
+ggplot(df, aes(x = `Risk Determination`, y = Count, fill = Outcome)) +
+  geom_bar(stat = "identity", position = "fill") +
+  labs(title = "Proportion of HSI in Unique Players by Risk Assessment (All Time)",
+       y = "Proportion") +
+  scale_fill_manual(values = c('#CFB87C', '#565A5C')) + 
+  theme_bw()
+```
+
+When comparing the prevalance of HSI in high risk athletes vs the total population inluding the high risk athletes the p-value is 0.1411 meaning that there is not a ton of statistical evidence that the prevalance of HSI in high risk athletes is greater than the prevalance in the entire population.
+
+When comparing the prevalance of HSI in high risk athletes vs all other athletes not deemed high risk the p-value is 0.003915 which shows high statistical evidence that the prevalance of HSI in righ risk athletes is greater than the prevalance of all other athletes. 
 
 However, once again, 19 of these tests were done on 02/27/25 or later and the incident report only goes until April 22, 2025 so there could have been more injuries that occured afterwards unkown to us.
 
@@ -1912,14 +1927,13 @@ In terms of avg imbalance RBs, WRs, DBs, and LBs are statistically significant.
 
 ```{r, warning = FALSE}
 #creates a histogram of nordic mean imbalance for WRs filled by high risk status, position = 'identity' argument makes it so the bars do not stack and the vertical line is the example threshold found above
-ggplot(WRs, aes(Nordic.MEAN.Imbalance, fill = as.factor(HR))) + 
-  geom_histogram(position = 'identity', alpha = 0.5, bins = 20) + 
+ggplot(LBs, aes(Nordic.MEAN.Imbalance, fill = as.factor(HR))) + 
+  geom_histogram(position = 'identity', alpha = 0.5, bins = 25) + 
   scale_fill_manual(values = c('black', '#CFB87C')) + 
-  labs(title = 'Nordic Imbalance vs High Risk Status (All Time) for WRs',
+  labs(title = 'Nordic Imbalance vs High Risk Status (All Time) for LBs',
        x = 'Nordic Mean Imbalance (Absolute Value)',
-       y = 'Number of WRs',
+       y = 'Number of LBs',
        fill = 'High Risk Status') + 
-  geom_vline(xintercept = 12.5772, col = 'black', linetype = 'dashed') +
   theme_bw()
 ```
 
@@ -1938,6 +1952,18 @@ t.test(Perc.Diff.Norm ~ HR, data = DLs, alternative = 'greater')
 ```
 
 Significant: WRs, TEs, OLs, DBs, LBs, DLs
+
+```{r, warning = FALSE}
+#creates a histogram of nordic mean imbalance for WRs filled by high risk status, position = 'identity' argument makes it so the bars do not stack and the vertical line is the example threshold found above
+ggplot(WRs, aes(Perc.Diff.Norm, fill = as.factor(HR))) + 
+  geom_histogram(position = 'identity', alpha = 0.5, bins = 25) + 
+  scale_fill_manual(values = c('black', '#CFB87C')) + 
+  labs(title = 'Nordic Imbalance vs High Risk Status (All Time) for WRs',
+       x = 'Nordic Mean Imbalance (Absolute Value)',
+       y = 'Number of WRs',
+       fill = 'High Risk Status') + 
+  theme_bw()
+```
 
 ### 3. Strength Trend
 

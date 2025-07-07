@@ -1230,6 +1230,14 @@ Vald_prev %>%
   summarize(mean(HSI))
 ```
 
+```{r}
+positional_summaries <- Vald_prev %>%
+  group_by(Position, HR) %>%
+  summarize(`Average Percent Difference Norm` = mean(Perc.Diff.Norm, na.rm = TRUE),
+            `Average Imbalance` = mean(Nordic.MEAN.Imbalance, na.rm = TRUE),
+            `Average Trend (Numerical)` = mean(Trend.Num, na.rm = TRUE))
+```
+
 Important to note that 90% of the observations in VALD that are RBs suffered HSI.
 
 ```{r}
