@@ -2,6 +2,9 @@
 title: "sydney-notebook"
 output: html_document
 date: "2025-06-16"
+editor_options: 
+  markdown: 
+    wrap: sentence
 ---
 
 ```{r}
@@ -33,16 +36,19 @@ strengthtest <- read.csv("~/T2P1-data-analysis-2025/data-sets/Strength Testing D
 VALD <- read.csv("~/T2P1-data-analysis-2025/data-sets/VALD - Performance Test FB.csv")
 wellness <- read.csv("~/T2P1-data-analysis-2025/data-sets/Wellness Report FB.csv")
 ```
+
 ```{r}
 perfnorm_byposition <- read.csv("~/T2P1-data-analysis-2025/data-sets/FB Performance Normative Data 2024.csv")  ##NEW GIVEN DATASET TO LOOK INTO
 ```
+
 ```{r}
 player_byposition <- read.csv("~/T2P1-data-analysis-2025/data-sets/deid_pos.csv")
 ```
 
-## Data Cleaning 
+## Data Cleaning
 
 ##1.ACWR
+
 ```{r}
 #refined ACWR dataset 
 ACWR <- ACWR %>%
@@ -71,6 +77,7 @@ filtered_Acwr <- Acwr %>%
             Total.Distance.ACWR = mean(Total.Distance.ACWR, na.rm = TRUE)) %>%
   ungroup()
 ```
+
 ```{r}
 #min(filtered_Acwr$Date,na.rm=TRUE)
 #max(filtered_Acwr$Date,na.rm=TRUE)
@@ -95,7 +102,8 @@ ggplot(Acwr_HSI, aes(Acceleration.Load.EWMA.ACWR)) +
   theme_bw()
 ```
 
-## 2. Catapult 
+## 2. Catapult
+
 ```{r}
 #refined catapult session outdoor dataset
 catapult <- catapult %>%
@@ -160,7 +168,8 @@ max(catapult$Maximum.Velocity,na.rm=TRUE)
 mean(catapult$Average.Velocity,na.rm=TRUE)
 ```
 
-## 3. Incident 
+## 3. Incident
+
 ```{r}
 #sort out any non football values + etc
 incident <- incident %>%
@@ -224,11 +233,14 @@ start_date <- current_date- months(12)
 incident_HSI_1yr <- incident_HSI %>%
   filter(Date >= start_date)
 ```
+
 ```{r}
 #overall # of HSI incidences from filtered dataset
 sum(incident_HSI$HSI)
 ```
+
 ## 4. Performance Normative data
+
 ```{r}
 filtered_perfnorm <- subset(perfnorm,select=c("anon_id","Date","Position","Nordic.Average","Nordic.Imbalance..","Adduction.Abduction.Ratio","Eccentric.Peak.Power...Relative","Jump.Height","Modified.RSI"))
 
@@ -245,8 +257,10 @@ perfnorm_merge <- filtered_perfnorm %>%
   na.omit()
 ```
 
-## 5. Performance Risk Assessment 
+## 5. Performance Risk Assessment
+
 DATASET ONLY FROM ONE DAY OF LAST YEAR.
+
 ```{r}
 #filter football
 perfrisk <- perfrisk %>%
@@ -259,12 +273,14 @@ filtered_perfrisk <- filtered_perfrisk %>%
   na.omit()
 ```
 
-## Perfomance Normative Data by Position 
+## Perfomance Normative Data by Position
+
 ```{r}
 perfnorm_bypos <- subset(perfnorm_byposition, select=c("Position", "Nordic.Average", "Nordic.Imbalance..","Adduction.Force","Abduction.Force","Adduction.Imbalance..", "Abduction.Imbalance..", "Adduction.Abduction.Ratio","Jump.Height", "Modified.RSI", "Eccentric.Peak.Power...Relative","Concentric.Peak.Power...Relative"))
 ```
 
 ## 6. Soft Tissue Risk Status
+
 ```{r}
 #refined risk status dataset
 #contains variable, what we are comparing against// validating 
@@ -296,6 +312,7 @@ sum(risk_merge$Highrisk_binary)
 ```
 
 ## Soft-Tissue Watchlist Risk Status (future validation)
+
 ```{r}
 #filtering just the high risk athletes from the watchlist
 Riskstatus_high <- riskstatus %>%
@@ -310,6 +327,7 @@ high_risk <- unique(Riskstatus_high$anon_id)
 ```
 
 ## 7. Stength Test
+
 ```{r}
 #cut back to last year
 strengthtest$Date <- mdy(strengthtest$Date)
@@ -325,7 +343,8 @@ strgth_merge <- strengthtest %>%
   na.omit()
 ```
 
-## 8. VALD Performance Test 
+## 8. VALD Performance Test
+
 ```{r}
 filtered_VALD <- subset(VALD, select = c("anon_id","Date", "Session.Date", "Trend", "Maximum.Force","Average.Force","Impulse", "Percent.Difference.Norm", "Nordic.Left.MAX", "Nordic.Right.MAX", "Nordic.MEAN.Imbalance.with.side","Nordic.Left.Z.Score", "Nordic.Right.Z.Score", "Positional.Norm","Hip.Abd.Trend","Hip.Add.Trend", "Nordic...Difference.from.First.Test", "Month", "Year"))  #can add position back if needed 
 
@@ -362,6 +381,7 @@ filtered_VALD <- filtered_VALD %>%
 ```
 
 ## 9. Wellness
+
 ```{r}
 wellness <- wellness %>%
   filter(Sport=="FOOTBALL")
@@ -392,16 +412,17 @@ filtered_wellness <- filtered_wellness %>%
   na.omit()
 ```
 
-
 # Attempting to Merge Datasets into One filtered by date
-  ##1st look at Data by Position.
+
+##1st look at Data by Position.
+
 ```{r}
 #MERGE ONLY risk_merge to incident to cover all incidents that occurred fully comparing to risk status's
 HSIincident_vs_risk <- merge(incident, risk_merge, by = c('anon_id'), all = TRUE)
 HSIincident_vs_risk2 <- HSIincident_vs_risk %>%
   subset(select=c("anon_id","Position", "Highrisk_binary", "HSI", "Status.y")) %>%
   na.omit()
-sum(HSIincident_vs_risk2$HSI) #total # of HSI incidents #56
+sum(HSIincident_vs_risk2$HSI&HSIincident_vs_risk2$Highrisk_binary) #total # of HSI incidents #56
 sum(HSIincident_vs_risk2$Highrisk_binary) #total # of times deemed high risk #611
 ```
 
@@ -414,6 +435,7 @@ filtered_DB <- HSIincident_vs_risk2 %>%
 sum(filtered_DB$Highrisk_binary) # number of DB deemed high risk
 sum(filtered_DB$HSI)  # number of DB w/ an HSI injury
 ```
+
 ```{r}
 #find rate of high risk per position also rate of HSI per position 
 #DEFENSIVE LINEMAN 
@@ -433,6 +455,7 @@ filtered_QB <- HSIincident_vs_risk2 %>%
 sum(filtered_QB$Highrisk_binary) # number of QB deemed high risk
 sum(filtered_QB$HSI) # number of QB w/ an HSI injury
 ```
+
 
 ```{r}
 #find rate of high risk per position also rate of HSI per position 
@@ -454,6 +477,7 @@ filtered_TE <- HSIincident_vs_risk2 %>%
 sum(filtered_TE$Highrisk_binary) # number of TE deemed high risk
 sum(filtered_TE$HSI) # number of TE w/ an HSI injury 
 ```
+
 ```{r}
 #find rate of high risk per position also rate of HSI per position 
 #Specialist 
@@ -475,6 +499,7 @@ filtered_RB <- HSIincident_vs_risk2 %>%
 sum(filtered_RB$Highrisk_binary) # number of RB deemed high risk
 sum(filtered_RB$HSI) # number of RB w/ an HSI injury 
 ```
+
 ```{r}
 #find rate of high risk per position also rate of HSI per position 
 #OFFENSIVE LINEMAN
@@ -496,10 +521,12 @@ filtered_LB <- HSIincident_vs_risk2 %>%
 sum(filtered_LB$Highrisk_binary) # number of LB deemed high risk
 sum(filtered_LB$HSI) # number of LB w/ an HSI injury 
 ```
-Already filtered every dataset to the past year. 
+
+Already filtered every dataset to the past year.
 -creating Incident Report with Start and End Dates
 
-1. Merging Incident
+1.  Merging Incident
+
 ```{r, warning = FALSE}
 #creates a data frame with HSI injury dates for each player that experienced HSI with start dates on last HSI date or 6 months earlier if no previous HSI
 HSI_last_injury <- incident_HSI %>%
@@ -530,16 +557,23 @@ merge_incid <- merge_incid %>%
   mutate(Group = ifelse(Injury.1.Start <= Date & Date <= Injury.1, 1, ifelse(Injury.2.Start <= Date & Date <= Injury.2, 2, ifelse(Injury.3.Start <= Date & Date <= Injury.3, 3, ifelse(Injury.4.Start <= Date & Date <= Injury.4, 4, ifelse(Date > Injury.4, 'After', 0)))))) %>%
   filter(is.na(Group) | Group != 'After')
 
-merge_incid <- merge_incid %>%
-  mutate(Mechanism = ifelse(Group == 4, Injury.4.Mech, ifelse(Group == 3, Injury.3.Mech, ifelse(Group == 2, Injury.2.Mech, ifelse(Group == 1, Injury.1.Mech, NA)))),
-         Recurrence = ifelse(Group == 4, Injury.4.Recur, ifelse(Group == 3, Injury.3.Recur, ifelse(Group == 2, Injury.2.Recur, ifelse(Group == 1, Injury.1.Recur, NA)))),
-         Time.Injured = ifelse(Group == 4, Injury.4.Time, ifelse(Group == 3, Injury.3.Time, ifelse(Group == 2, Injury.2.Time, ifelse(Group == 1, Injury.1.Time, NA))))) %>%
-  group_by(anon_id, Group, Mechanism, Recurrence, Time.Injured) %>%
-  summarise(Body.Part,OSICS14.Code.x = paste0(OSICS14.Code.x, collapse = " and ")) %>%
-  mutate(Injuries.Last.3.Months = ifelse(is.na(Group) | Group == 0, sapply(strsplit(OSICS14.Code.y, " and "), length), sapply(strsplit(OSICS14.Code.y, " and "), length) - 1))
 ```
 
-2. Merging Wellness
+```{r}
+#merge_incid <- merge_incid %>%
+ # mutate(Mechanism = ifelse(Group == 4, Injury.4.Mech, ifelse(Group == 3, Injury.3.Mech, ifelse(Group == 2, Injury.2.Mech, ifelse(Group == 1, Injury.1.Mech, NA)))),
+   #      Recurrence = ifelse(Group == 4, Injury.4.Recur, ifelse(Group == 3, Injury.3.Recur, #ifelse(Group == 2, Injury.2.Recur, ifelse(Group == 1, Injury.1.Recur, NA)))),
+     #    Time.Injured = ifelse(Group == 4, Injury.4.Time, ifelse(Group == 3, Injury.3.Time, #ifelse(Group == 2, Injury.2.Time, ifelse(Group == 1, Injury.1.Time, NA))))) %>%
+ # group_by(anon_id, Group, Mechanism, Recurrence, Time.Injured) %>%
+#  summarise(Body.Part,OSICS14.Code.x = paste0(OSICS14.Code.x, collapse = " and ")) %>%
+ # mutate(Injuries.Last.3.Months = ifelse(is.na(Group) | Group == 0, sapply(strsplit(OSICS14.Code.y, " and "), length), sapply(strsplit(OSICS14.Code.y, " and "), length) - 1))
+```
+
+
+
+
+2.  Merging Wellness
+
 ```{r}
 #selecting only the variables of interest: important to not that this only contains data from may to december of 2024
 Wellness <- subset(wellness, select = c("anon_id", "Date", "Mental.Score", "Physical.Score", "Sleep.Quality.Score", "Soreness.Score", "Overall.Wellness.Score", "Month", "Year"))
@@ -576,7 +610,8 @@ get_mode <- function(v) {
 }
 ```
 
-3. Merging VALD
+3.  Merging VALD
+
 ```{r}
 merge_vald <- merge(HSI_last_injury, vald_merge, by = c('anon_id'), all = TRUE)
 
@@ -597,7 +632,8 @@ merge_vald <- merge_vald %>%
             Nordic...Difference.from.First.Test = mean(Nordic...Difference.from.First.Test, na.rm = TRUE))
 ```
 
-4. Merging Catapult
+4.  Merging Catapult
+
 ```{r}
 merge_catapult <- merge(HSI_last_injury, Catapult2, by = c('anon_id'), all = TRUE)
 
@@ -625,7 +661,8 @@ merge_catapult <- merge_catapult %>%
             Max.Deceleration = min(Max.Deceleration, na.rm = TRUE))
 ```
 
-5. Merging ACWR
+5.  Merging ACWR
+
 ```{r}
 merge_acwr <- merge(HSI_last_injury, acwr_merge, by = c('anon_id'), all = TRUE)
 
@@ -641,7 +678,8 @@ merge_acwr <- merge_acwr %>%
             Total.Distance.ACWR = mean(Total.Distance.ACWR, na.rm = TRUE))
 ```
 
-6. Merging Soft Tissue Risks
+6.  Merging Soft Tissue Risks
+
 ```{r}
 merge_risk <- merge(HSI_last_injury, risk_merge, by = c('anon_id'), all = TRUE)
 
@@ -655,7 +693,8 @@ merge_risk <- merge_risk %>%
   summarise(.groups = 'drop')
 ```
 
-7. Merging Perfnorm
+7.  Merging Perfnorm
+
 ```{r}
 merge_perfnorm <- merge(HSI_last_injury, perfnorm_merge, by = c('anon_id'), all = TRUE)
 
@@ -672,7 +711,8 @@ merge_perfnorm <- merge_perfnorm %>%
             Modified.RSI = mean(Modified.RSI, na.rm = TRUE))
 ```
 
-8. Merging Strength Test
+8.  Merging Strength Test
+
 ```{r}
 merge_strgth <- merge(HSI_last_injury, strgth_merge, by = c('anon_id'), all = TRUE)
 
@@ -727,6 +767,7 @@ merge_position$HSI <- ifelse(merge_position$OSICS14.Code %in% c("TMI","TMB","TMS
 ```
 
 ##Merging All Datasets Together
+
 ```{r}
 #merging wellness with VALD
 final_merge_full <- merge(merge_well, merge_vald, by = c('anon_id', 'Group'), all = TRUE)
@@ -751,6 +792,7 @@ final_merge_full$HSI <- ifelse(final_merge_full$OSICS14.Code %in% c("TMI","TMB",
 ```
 
 ## 3 Months Prior Emphasis from Blake
+
 ```{r, warning = FALSE}
 #generates a date for 3 months from the injury and then collapses the injury dates and 3 month prior dates into 8 columns (4 injuries per player) for each player 
 HSI_3_months <- incident_HSI %>%
@@ -770,7 +812,8 @@ HSI_3_months <- incident_HSI %>%
   separate(Time.Injured, c('Injury.1.Time', 'Injury.2.Time', 'Injury.3.Time', 'Injury.4.Time'), sep = ' and ')
 ```
 
-2. Merging VALD
+2.  Merging VALD
+
 ```{r}
 merge_vald <- merge(HSI_3_months, vald_merge, by = c('anon_id'), all = TRUE)
 
@@ -838,6 +881,7 @@ filter_full3_merge <- full3 %>%
 ```
 
 ## Exploratory Analysis: descriptive stats + plots
+
 ```{r}
 ggplot(vald_merge, aes(x = Maximum.Force)) + 
   geom_histogram(bins = 30, fill = 'royalblue', color = 'black') + 
@@ -910,11 +954,13 @@ boxplot(Player.Load.ACWR~Status,data=final_merge_full,lmain="Risk Status vs % Di
 ```
 
 -Lower body injuries are most prevalent .With the thigh which includes the hamstring having the greatest quantity of injuries of the lower body.
--Recurrence of injuries is not as high as anticipated. New injuries is the biggest threat to our team.
+-Recurrence of injuries is not as high as anticipated.
+New injuries is the biggest threat to our team.
 
+## Q1:: VALIDATION OF SOFT TISSUE WATCHLIST
 
-## Q1:: VALIDATION OF SOFT TISSUE WATCHLIST 
-1. Players Deemed High Risk
+1.  Players Deemed High Risk
+
 ```{r}
 #filtering just the high risk athletes from the watchlist
 Riskstatus_high <- riskstatus %>%
@@ -964,7 +1010,7 @@ incident_hr_HSI2 <- incident_hr_HSI %>%
   summarize(Outcome = paste0(FinalDiagnosisIncidentDate, collapse = " and "))
 ```
 
-Player ID_194 has a duplicate injury with both 'Left Hamstring strain/tear' and 'Left Semimembranosis/tendinosis strain (grade 1 - 2)' being listed for 06/05/24. 
+Player ID_194 has a duplicate injury with both 'Left Hamstring strain/tear' and 'Left Semimembranosis/tendinosis strain (grade 1 - 2)' being listed for 06/05/24.
 
 ```{r, warning = FALSE}
 #combines the dates the athletes were deemed high risk with their injuries and separates the injury occurrences and dates
@@ -1012,6 +1058,7 @@ ggplot(tests_outcomes_hr, aes(x = outcomes_hr, fill = outcomes_hr)) +
        y = 'Number of Observations') + 
   theme_bw()
 ```
+
 Most injuries are new injuries so more difficult to predict as recurrence of injury is not that prevelant of a determining variable.
 
 ```{r}
@@ -1033,9 +1080,17 @@ ggplot(all_times, aes(x = x)) +
   theme_bw()
 ```
 
-Players ID_220 and ID_83 was deemed high risk on the same day they suffered a hamstring injury, I classified them into the not accurate category. Player ID_307 suffered a tendon injury (not strain/tear) after over 3 months from the test. Player_ID 32 suffered his injury in just over 2 months. Player ID_83 suffered his injury in just under 8 months from the first test. Player ID_85 had injuries after both tests, with the first coming within the month of the test and second coming within the month of the second test. Player ID_86 and ID_87 injured their hamstrings in just under 6 months from their first tests. Player ID_95 injured his hamstring once after just over a month and a second time after under 3 months from the same test. Player ID_98 suffered a single injury after both of his tests, it being under 5 months from the first test and within a month from the second.  
+Players ID_220 and ID_83 was deemed high risk on the same day they suffered a hamstring injury, I classified them into the not accurate category.
+Player ID_307 suffered a tendon injury (not strain/tear) after over 3 months from the test.
+Player_ID 32 suffered his injury in just over 2 months.
+Player ID_83 suffered his injury in just under 8 months from the first test.
+Player ID_85 had injuries after both tests, with the first coming within the month of the test and second coming within the month of the second test.
+Player ID_86 and ID_87 injured their hamstrings in just under 6 months from their first tests.
+Player ID_95 injured his hamstring once after just over a month and a second time after under 3 months from the same test.
+Player ID_98 suffered a single injury after both of his tests, it being under 5 months from the first test and within a month from the second.
 
-2. Players Deemed Low Risk
+2.  Players Deemed Low Risk
+
 ```{r}
 #filtering just the low risk athletes from the watchlist
 Riskstatus_low <- riskstatus %>%
@@ -1081,7 +1136,8 @@ incident_lr_HSI2 <- incident_lr_HSI %>%
   summarize(Outcome = paste0(FinalDiagnosisIncidentDate, collapse = " and "))
 ```
 
-Player ID_194 has a duplicate injury with both 'Left Hamstring strain/tear' and 'Left Semimembranosis/tendinosis strain (grade 1 - 2)' being listed for 06/05/24. Player ID_360 has a duplicate injury with both 'Left Ankle sprains' and 'Left Peroneal tendinopathy' being listed for 11/21/24, but this is less important as it only relates to ankles.
+Player ID_194 has a duplicate injury with both 'Left Hamstring strain/tear' and 'Left Semimembranosis/tendinosis strain (grade 1 - 2)' being listed for 06/05/24.
+Player ID_360 has a duplicate injury with both 'Left Ankle sprains' and 'Left Peroneal tendinopathy' being listed for 11/21/24, but this is less important as it only relates to ankles.
 
 ```{r, warning = FALSE}
 #combines the dates the athletes were deemed low risk with their injuries and separates the injury occurrences and dates
@@ -1130,9 +1186,10 @@ ggplot(tests_outcomes_lr, aes(x = outcomes_lr, fill = outcomes_lr)) +
   theme_bw()
 ```
 
-Important to note that only two hamstring injuries occured in players deemed low risk with one occurring almost 6 months after being deemed low risk. The other player hurt his left hamstring 4 months after being deemed low risk and hurt his left hamstring two more times and even his right hamstring later.
+Important to note that only two hamstring injuries occured in players deemed low risk with one occurring almost 6 months after being deemed low risk.
+The other player hurt his left hamstring 4 months after being deemed low risk and hurt his left hamstring two more times and even his right hamstring later.
 
-3. Players Deemed Medium Risk
+3.  Players Deemed Medium Risk
 
 ```{r}
 #filtering just the low risk athletes from the watchlist
@@ -1179,7 +1236,8 @@ incident_med_HSI2 <- incident_med_HSI %>%
   summarize(Outcome = paste0(FinalDiagnosisIncidentDate, collapse = " and "))
 ```
 
-Player ID_489 has a duplicate injury with both 'Left Knee medial collateral ligament injury' and 'Left Grade 2 MCL tear knee' being listed for 11/23/24, but this is not as important to us. Player ID_595 has a duplicate injury of 'Left Ankle sprains' on 08/15/24. 
+Player ID_489 has a duplicate injury with both 'Left Knee medial collateral ligament injury' and 'Left Grade 2 MCL tear knee' being listed for 11/23/24, but this is not as important to us.
+Player ID_595 has a duplicate injury of 'Left Ankle sprains' on 08/15/24.
 
 ```{r, warning = FALSE}
 #combines the dates the athletes were deemed high risk with their injuries and separates the injury occurrences and dates
@@ -1228,12 +1286,17 @@ ggplot(tests_outcomes_med, aes(x = outcomes_med, fill = outcomes_med)) +
   theme_bw()
 ```
 
-There appear to be no observations of HSI following a player being deemed as "Medium" risk for injury. Is this because it is harder to deem what is a medium risk? Least amount of players put into the medium risk status category.
+There appear to be no observations of HSI following a player being deemed as "Medium" risk for injury.
+Is this because it is harder to deem what is a medium risk?
+Least amount of players put into the medium risk status category.
+
 ```{r}
 table(final_merge_full$Status)
+table(final_merge_full$Position)
 ```
 
-4. Players Deemed Routine Risk
+4.  Players Deemed Routine Risk
+
 ```{r}
 #filtering just the low risk athletes from the watchlist
 Riskstatus_rout <- riskstatus %>%
@@ -1279,7 +1342,8 @@ incident_rout_HSI2 <- incident_rout_HSI %>%
   summarize(Outcome = paste0(FinalDiagnosisIncidentDate, collapse = " and "))
 ```
 
-Player ID_489 has a duplicate injury with both 'Left Knee medial collateral ligament injury' and 'Left Grade 2 MCL tear knee' being listed for 11/23/24, but this is not as important to us. Player ID_595 has a duplicate injury of 'Left Ankle sprains' on 08/15/24. 
+Player ID_489 has a duplicate injury with both 'Left Knee medial collateral ligament injury' and 'Left Grade 2 MCL tear knee' being listed for 11/23/24, but this is not as important to us.
+Player ID_595 has a duplicate injury of 'Left Ankle sprains' on 08/15/24.
 
 ```{r, warning = FALSE}
 #combines the dates the athletes were deemed high risk with their injuries and separates the injury occurrences and dates
@@ -1328,15 +1392,25 @@ ggplot(tests_outcomes_rout, aes(x = outcomes_rout, fill = outcomes_rout)) +
   theme_bw()
 ```
 
-Player ID_111 injured his left hamstring less than a month after the test and right hamstring a little over a month after the test. Should have been higher risk especially with injuring his left hamstring twice before the test. Player ID_220 injured his almost 10 months after the test which is quite a lot of time. Player ID_238 also injured his almost 8 months after the test. Player ID_247 hurt his hamstring in under 2 months from the test. Player ID_420 hurt his hamstring in under 2 months from his first test similarly. Player ID_485 and ID_50 hurt his hamstring in just over a month from the test. Player ID_75 hurt his in under 4 months from the test. 
+Player ID_111 injured his left hamstring less than a month after the test and right hamstring a little over a month after the test.
+Should have been higher risk especially with injuring his left hamstring twice before the test.
+Player ID_220 injured his almost 10 months after the test which is quite a lot of time.
+Player ID_238 also injured his almost 8 months after the test.
+Player ID_247 hurt his hamstring in under 2 months from the test.
+Player ID_420 hurt his hamstring in under 2 months from his first test similarly.
+Player ID_485 and ID_50 hurt his hamstring in just over a month from the test.
+Player ID_75 hurt his in under 4 months from the test.
 
 ## Correlation Tests
+
 ```{r}
 #cor(final_merge_full %>% select_if(is.numeric))
 cor(filter_full3_merge  %>% select_if(is.numeric))
 ```
+
 HSI and Injuries in the last 3 months correlation factor of (-.90).
 Nordic.MEAN.Imbalance.with.side and Injuries in the last 3 months correlation factor of (-.876).
+
 ```{r}
 library(caret)
 library(pROC)
@@ -1346,18 +1420,24 @@ library(rpart)
 library(glmnet)
 ```
 
-Q1. Does simply being deemed as high risk on the soft tissue watch list predict HSI incidence?
+Q1.
+Does simply being deemed as high risk on the soft tissue watch list predict HSI incidence?
 ## 3 MONTH VALIDATION
+
 ```{r}
 sum(final_merge_full$HSI)      # total OBS 1782, HSI= 16/1782= 0.89% 
 sum(HSIincident_vs_risk2$HSI)  # total OBS 2487, HSI=56/2487= 2.25 %
 ```
+
 ```{r}
 #Stepwise validation through 2 best combined datasets
 table(final_merge_full$Status,final_merge_full$HSI)
-
 table(HSIincident_vs_risk2$Status,HSIincident_vs_risk2$HSI)
+
+table(HSIincident_vs_risk2$Position)
 ```
+
+
 
 ```{r}
 #ordinal variable 
@@ -1366,14 +1446,19 @@ HSIincident_vs_risk2$Status <- factor(
   levels = c("Routine", "Low", "Medium", "High"),
   ordered = TRUE
 )
-#logistic regression
+#logistic regression// Status
 model_q1 <- glm(HSI~Status, data=HSIincident_vs_risk2, family="binomial")
 summary(model_q1)
 exp(coef(model_q1))   #ODDS RATIO
+
+#logistic regression// Highrisk_binary
+model_q2 <- glm(HSI~Highrisk_binary, data=HSIincident_vs_risk2, family="binomial")
+summary(model_q2)
 ```
 
 ```{r}
 library(caret)
+##MODEL 1
 #model evaluation
 HSIincident_vs_risk2$pred_prob_q1 <- predict(model_q1,type="response")
 HSIincident_vs_risk2$pred_class_q1 <- ifelse(HSIincident_vs_risk2$pred_prob_q1>0.5,1,0) #class w/ 0.5 threshold
@@ -1386,9 +1471,33 @@ actual <- factor(HSIincident_vs_risk2$HSI, levels = c(0, 1))
 confusionMatrix(pred, actual)
 ```
 ```{r}
+##MODEL 2
+#model evaluation
+HSIincident_vs_risk2$pred_prob_q2 <- predict(model_q2,type="response")
+HSIincident_vs_risk2$pred_class_q2 <- ifelse(HSIincident_vs_risk2$pred_prob_q2>0.5,1,0) #class w/ 0.5 threshold
+
+#convert both predicted + actual to factors w/ the same levels
+predd <- factor(HSIincident_vs_risk2$pred_class_q2, levels = c(0, 1))
+actuall <- factor(HSIincident_vs_risk2$HSI, levels = c(0, 1))
+
+#confusion matrix
+confusionMatrix(predd, actuall)
+```
+```{r}
+##MODEL 1
 library(pROC)
 #ROC CURVE
 roc_obj <- roc(HSIincident_vs_risk2$HSI, HSIincident_vs_risk2$pred_prob_q1)
+plot(roc_obj, main="ROC Curve", col="pink",lwd=3)
+auc(roc_obj)
+```
+
+
+```{r}
+##MODEL 2
+library(pROC)
+#ROC CURVE
+roc_obj <- roc(HSIincident_vs_risk2$HSI, HSIincident_vs_risk2$pred_prob_q2)
 plot(roc_obj, main="ROC Curve", col="pink",lwd=3)
 auc(roc_obj)
 ```
@@ -1405,27 +1514,33 @@ table_flag <-table(HSIincident_vs_risk2$Status=="High",HSIincident_vs_risk2$HSI)
 chisq.test(table_flag)
 fisher.test(table_flag)    # aplha=0.05
 ```
-P-values < alpha therefore statistically significant. 
 
-Q2. How do components of the watch list predict HSI? subsequent//following HSI injury risk?
-##                         TRY AGAIN WITH MY BIGGER// BETTER DATASET filter_full3_merge// SEE IF RESULTS COME OUT BETTER THAT WAY 
+P-values \< alpha therefore statistically significant.
+
+Q2.
+How do components of the watch list predict HSI?
+subsequent//following HSI injury risk?
+## TRY AGAIN WITH MY BIGGER// BETTER DATASET filter_full3_merge// SEE IF RESULTS COME OUT BETTER THAT WAY
 
 ## Modeling & Evaluations
+
 ```{r}
 #get positions for all players + risk status +highrisk_binary 
 start <- left_join(player_byposition, riskstatus2, by=c("anon_id"))
 start1 <- start %>%
   na.omit()    #143obs.
-
+perf <- subset(perfnorm, select=c(anon_id,Eccentric.Peak.Power...Relative))
 #variables i want all grouped down to individual player ID (anon_id)
-vAld <- subset(VALD, select=c(anon_id,Nordic.Left.Z.Score,Nordic.Right.Z.Score,Maximum.Force, Nordic.MEAN.Imbalance.with.side))  #possibly add Trend
+vAld <- subset(VALD, select=c(anon_id,Nordic.Left.Z.Score,Nordic.Right.Z.Score,Maximum.Force, Nordic.MEAN.Imbalance.with.side,Trend,Positional.Norm,Percent.Difference.Norm)) 
+                               #adding Trend + Positional.Norm +Percent.Difference.Norm
 vaLd <- vAld %>%
   na.omit() %>%          #136obs
   group_by(anon_id) %>%
   summarise(Avg.Nordic.Left.Z.Score= mean(Nordic.Left.Z.Score, na.rm=TRUE),
             Avg.Nordic.Right.Z.Score= mean(Nordic.Right.Z.Score, na.rm=TRUE),
            Avg.Maximum.Force= mean(Maximum.Force, na.rm=TRUE),
-           Nordic.MEAN.Imbalance.with.side= mean(Nordic.MEAN.Imbalance.with.side, na.rm=TRUE))
+           nordic_imbalance_score= mean(Nordic.MEAN.Imbalance.with.side, na.rm=TRUE)) %>%
+  mutate(nordic_imbalance_score=scale(nordic_imbalance_score))
 
 wEll <- subset(wellness, select=c(anon_id, Overall.Wellness.Score))
 wEll <- wEll %>%
@@ -1473,7 +1588,7 @@ thresh_data_final$Contacthit_binary = Contacthit_binary
 
 #Z SCORES AND FLAGS FOR RISK and to determine thresholds off of 
 thresh_final <- thresh_data_final %>%
-  mutate(nordic_imbalance_flag= if_else(Nordic.MEAN.Imbalance.with.side>1.28,1,0),
+  mutate(nordic_imbalance_flag= if_else(nordic_imbalance_score<-1.28|nordic_imbalance_score>1.28,1,0),
          nordic_zscore=mean(Avg.Nordic.Left.Z.Score+Avg.Nordic.Right.Z.Score),
          force_zscore= scale(Avg.Maximum.Force),
          #time_injured_flag= if_else(Time.Injured> 13.25,1,0),
@@ -1509,11 +1624,12 @@ ggplot(data=thresh_final, aes(x =Status, y = nordic_imbalance_flag)) +
 ```{r}
 #LOOP THROUGH ALL POSITIONS TO CREATE THRESHOLDS OF EACH METRIC TAKING POSITION UNDER CONSIDERATION
 positions <- unique(thresh_final$Position)
-metrics <- c("Avg.Nordic.Left.Z.Score","Avg.Nordic.Right.Z.Score","nordic_zscore", "force_zscore", "recurrence_flag", "mechanism_flag","nordic_imbalance_score")
+metrics <- c("Avg.Nordic.Left.Z.Score","Avg.Nordic.Right.Z.Score","nordic_zscore", "force_zscore", "recurrence_flag", "mechanism_flag","nordic_imbalance_flag")
 
 for (pos in positions){
     pos_data <- subset(thresh_final, Position == pos)
   pos_data$HighFlag <- ifelse(pos_data$Status == "High", "High", "Other")
+  pos_data$HSI <- as.numeric(as.character(pos_data$HSI))
 
   cat("\n====== Position:", pos, "======\n")
 
@@ -1532,30 +1648,42 @@ for (pos in positions){
     print(quantile(injured_group[[metric]], probs = c(0.1, 0.25, 0.5, 0.75), na.rm = TRUE))
 
     #ROC analysis
- if (sum(!is.na(pos_data[[metric]])) > 20 && 
+ # ROC analysis
+if (sum(!is.na(pos_data[[metric]])) > 20 && 
     length(unique(na.omit(pos_data$HSI))) == 2) {
-    library(pROC)
-    roc_obj <- roc(pos_data$HSI, pos_data[[metric]], direction = "<", quiet = TRUE)
-    coords_best <- coords(roc_obj, "best", ret = c("threshold", "sensitivity", "specificity"))
-    cat("ROC Best Threshold:", coords_best["threshold"], "\n")
+  
+  library(pROC)
+  #roc_obj <- roc(pos_data$HSI, pos_data[[metric]], direction = "<", quiet = TRUE)
+  roc_obj <- roc(pos_data$HSI, as.numeric(pos_data[[metric]]), direction = "<", quiet = TRUE)
+  coords_best <- coords(roc_obj, "best", ret = c("threshold", "sensitivity", "specificity"))
+  
+  cat("ROC Best Threshold:", coords_best$threshold, "\n")
+  cat("Sensitivity:", coords_best$sensitivity, "\n")
+  cat("Specificity:", coords_best$specificity, "\n")
+  
 } else {
-    cat("Skipping ROC analysis: insufficient data or only one class present in HSI.\n")
-}
-  }
+  cat("Skipping ROC analysis: insufficient data or only one class present in HSI.\n")
 }
 
+  }
+}
 ##SAVYING ONLY 1 CLASS OF HSI //BUT THATS NOT TRUE
 ```
+
 #Multimetric Threshold Matrix -create a risk score by counting how many thresholds an athlete breaches
+
 ```{r}
 thresh_final <- thresh_final %>%
-  mutate(
+mutate(
     risk_score = as.numeric(nordic_imbalance_flag) +
                  as.numeric(recurrence_flag) +
                  as.numeric(mechanism_flag) +
                  as.numeric(nordic_zscore) +
                  as.numeric(force_zscore)
   )
+
+#each component contributes either 0 or 1, total risk score==range from 0 to 5
+
 #then logistic model
 model_score <- glm(HSI ~ risk_score, data = thresh_final, family = "binomial")
 summary(model_score)
@@ -1567,7 +1695,7 @@ ggplot(thresh_final, aes(x = as.factor(risk_score), fill = HSI)) +
 
 #Export Athletes Who Trigger Flags thru risk score 
 flagged_athletes <- thresh_final %>%
-  filter(risk_score >= 3.5) %>%
+  filter(risk_score >= 4) %>%
   mutate(
     Avg.Nordic.Left.Z.Score = as.numeric(Avg.Nordic.Left.Z.Score),
     Avg.Nordic.Right.Z.Score = as.numeric(Avg.Nordic.Right.Z.Score),
@@ -1588,7 +1716,9 @@ min(flagged_athletes$Date, na.rm=TRUE)  # june, 27, 2024
 max(flagged_athletes$Date, na.rm=TRUE)  # febuary,27, 2025
 #AROUND 1 year looking back of data, did not sort exaclty to that tho 
 ```
+
 -Dealing w/ Class Imbalances
+
 ```{r}
 #demonstration of class imbalance that needs to be addressed 
 table(final_merge_full$HSI,final_merge_full$Status)
@@ -1596,41 +1726,12 @@ table(final_merge_full$HSI,final_merge_full$Status)
 
 NOTE: HSI events are more rare causing a class in balance (majority class== no injury), can lead to misleading data
 
-
 ```{r}
 #t tests
 ```
 
+##OLD CODE WITH WORSE DATASET BUT WORKS // TRYING A NEW ONE
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-##OLD CODE WITH WORSE DATASET BUT WORKS // TRYING A NEW ONE 
 ```{r}
 #convert + order variables how I want 
 #ordinal variable 
@@ -1712,6 +1813,7 @@ ggplot(data=filter_full3, aes(x = nordic_zscore, y = HSI)) +
   labs(title="Injury Rate vs Nordic Z-score")
 #see if plots can look better 
 ```
+
 ```{r}
 #t tests
 t.test(nordic_zscore~Highrisk_binary,data=filter_full3)
@@ -1721,9 +1823,8 @@ t.test(nordic_z_left~Highrisk_binary,data=filter_full3)
 t.test(Overall.Wellness.Score~Highrisk_binary,data=filter_full3)
 ```
 
-#Q3
-##THRESHOLD EXPLORATION 
-Q3: Can we find better thresholds for flagging risks?
+#Q3 ##THRESHOLD EXPLORATION Q3: Can we find better thresholds for flagging risks?
+
 ```{r}
 #average values by group
 aggregate(nordic_zscore~Status,data=filter_full3, mean)
@@ -1782,7 +1883,9 @@ for (pos in positions){
   }
 }
 ```
+
 #Multimetric Threshold Matrix -create a risk score by counting how many thresholds an athlete breaches
+
 ```{r}
 df11 <- df1 %>%
   mutate(risk_score = nordic_imbalance_flag+ recurrence_flag+time_injured_flag+trend_flag)
@@ -1806,8 +1909,8 @@ flagged_athletes <- df11 %>%
 write_csv(flagged_athletes, "flagged_athletes.csv")
 ```
 
-
 #looking to build models by positional grouping// build thresholds (Q3) by positions aswell ??
+
 ```{r}
 #sort out final_merge_full to 1 position at a time
 final_merge_full_OL <- subset(final_merge_full,grepl("OL", final_merge_full$Position)) #203 obs. 60 vars.
@@ -1821,6 +1924,7 @@ table(final_merge_full_LB$HSI, final_merge_full_LB$Status)  #LINEBACKERS
 ```
 
 -Dealing w/ Class Imbalances
+
 ```{r}
 #demonstration of class imbalance that needs to be addressed 
 table(final_merge_full$HSI,final_merge_full$Status)
@@ -1828,8 +1932,8 @@ table(final_merge_full$HSI,final_merge_full$Status)
 
 NOTE: HSI events are more rare causing a class in balance (majority class== no injury), can lead to misleading data
 
+##BELOW THIS DIDNT WORK WELL // DONT USE
 
-##BELOW THIS DIDNT WORK WELL // DONT USE 
 ```{r}
 ##NOT NEEDED ATM // MAYBE ADD LATER ON IF WOULD HELP MAKE IT EASIER # change to filter_full3
 #ordinal variable 
@@ -1874,7 +1978,8 @@ train_up <- upSample(x=train %>% dplyr::select(-HSI),
 table(train_up$Class)   #HSI== Class
 ```
 
-##NOT NEEDED 
+##NOT NEEDED
+
 ```{r}
 #convert to character labels
 train_up$Class <- factor(train_up$Class, levels = c(1,0), labels = c("Injury","NoInjury"))
@@ -1907,7 +2012,9 @@ plot(roc_obj2, main="ROC Curve- ROSE Logistic Model")
 pred_class <- predict(rose_model, newdata=test)
 confusionMatrix(pred_class,test$Class)
 ```
-##NONLINEAR METHODS- Random Forests 
+
+##NONLINEAR METHODS- Random Forests
+
 ```{r}
 set.seed(22)
 library(randomForest)
@@ -1921,7 +2028,8 @@ plot(roc_rf)
 auc(roc_rf)
 ```
 
-##Decision Tree for Threshold Exploration 
+##Decision Tree for Threshold Exploration
+
 ```{r}
 library(rpart)
 library(rpart.plot)
@@ -1939,6 +2047,7 @@ auc(roc_tree)
 ```
 
 ##XG Boosting -powerful machine learning method
+
 ```{r}
 library(xgboost)
 train_xgb <- train_up %>%
