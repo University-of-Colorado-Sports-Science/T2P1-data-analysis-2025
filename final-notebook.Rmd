@@ -2302,4 +2302,3 @@ ggplot(WRs_w, aes(Overall.Wellness.Score, fill = as.factor(HSI))) +
   geom_vline(xintercept = 14.80082, col = 'black', linetype = 'dashed') +
   theme_bw()
 ```
-
