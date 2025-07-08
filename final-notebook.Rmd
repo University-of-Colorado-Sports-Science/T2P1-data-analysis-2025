@@ -146,8 +146,7 @@ mean(catapult$Average.Velocity,na.rm=TRUE)
 #sort out any non football values + etc
 incident <- incident %>%
 filter(Sport=="FOOTBALL") %>%
-filter(Incident.Type=="Injury") %>%
-filter(Result.of.Sport.Participation=="Yes")
+filter(Incident.Type=="Injury") 
 
 filtered_incident <- subset(incident,select=c("anon_id", "Position", "Date.of.Injury...Onset.of.symptoms", "Side", "Body.Part", "Tissue.Type", "Pathology.Type", "OSICS14.Code", "OSICS10.Code", "OSICS10.Diagnosis", "Final.Diagnosis", "Result.of.Sport.Participation", "Recurrence.of.Injury", "Injury.Prognosis", "General.Mechanism", "Specific.Mechanism", "FinalDiagnosisIncidentDate", "Total.Time.Injured", "Month", "Year","Incident.Type"))[-c(1167,1168),]
 ```
@@ -362,7 +361,7 @@ wellness <- wellness %>%
   filter(Sport=="FOOTBALL")
 
 #mental score, physical score,sleep quality score, soreness scores, + overall wellness all relevant 
-filtered_wellness <- subset(wellness, select=c("anon_id","Date","Mental.Score","Physical.Score", "Sleep.Quality.Score","Soreness.Score","Overall.Wellness.Score","Wellness.Compliance","Month","Year"))
+filtered_wellness <- subset(wellness, select=c("anon_id","Position","Date","Mental.Score","Physical.Score", "Sleep.Quality.Score","Soreness.Score","Overall.Wellness.Score","Wellness.Compliance","Month","Year"))
 
 #cut back to last year
 filtered_wellness$Date <- mdy(filtered_wellness$Date)
@@ -1792,6 +1791,22 @@ ID_485 (Tendon Injury) was deemed routine risk on 08/06/2024 and hurt hamstring 
 
 ID_75 was deemed routine risk on 06/27/2024 and suffered HSI in right hamstring on 10/12/2024. He had a previous HSI and a right quadriceps injury, 34.3498134 percent difference from norm, 9.05 mean imbalance and slightly negative strength trend.
 
+```{r}
+library(formattable)
+
+#creates a list of the anon ids that suffered HSI after being deemed low or high risk
+false_ids <- c('ID_111', 'ID_117', 'ID_247', 'ID_430', 'ID_50', 'ID_75')
+
+#filters for only these players
+false_neg <- dash %>%
+  filter(anon_id %in% false_ids) %>%
+  transmute(`Player ID` = anon_id, Position, `Previous Injuries` = Prev.Injuries, `Percent Diff. Norm` = Perc.Diff.Norm, `Nordic Imbalance` = Nordic.Mean.Imbalance, Trend, Status, HSI = ifelse(HSI == 1, 'Yes', 'No')) %>%
+  na.omit()
+
+#creates a better looking table of these observations
+formattable(false_neg, title = "Table of False Negatives")
+```
+
 ### Prevalance of HSI in Both Populations:
 
 From down below we know that HSI occured after being deemed high risk in 7 of 33 athletes (0.2121212).
@@ -1832,9 +1847,9 @@ incident_all <- filtered_incident %>%
 
 Using the number of rows within these datasets above we can determine the number of unique athletes that suffered HSI within each population.
 
-In those not deemed high risk there are 235 athletes and only 12 unique athletes suffered HSI (0.05106383).
+In those not deemed high risk there are 235 athletes and only 14 unique athletes suffered HSI (0.05957447).
 
-In the whole population there are 268 athletes and only 34 unique instances of HSI which is (0.1268657). 
+In the whole population there are 268 athletes and only 38 unique instances of HSI which is (0.141791). 
 
 ### Fisher Test:
 
@@ -1907,6 +1922,11 @@ DLs <- Vald_prev %>%
   filter(Position == 'DL')
 ```
 
+```{r}
+ID_111 <- DBs %>%
+  filter(anon_id == 'ID_111')
+```
+
 Important to note that no specialists were deemed high risk so leaving them out.    
 
 ### 1. Nordic Mean Imbalance
@@ -1927,13 +1947,14 @@ In terms of avg imbalance RBs, WRs, DBs, and LBs are statistically significant.
 
 ```{r, warning = FALSE}
 #creates a histogram of nordic mean imbalance for WRs filled by high risk status, position = 'identity' argument makes it so the bars do not stack and the vertical line is the example threshold found above
-ggplot(LBs, aes(Nordic.MEAN.Imbalance, fill = as.factor(HR))) + 
+ggplot(DBs, aes(Nordic.MEAN.Imbalance, fill = as.factor(HR))) + 
   geom_histogram(position = 'identity', alpha = 0.5, bins = 25) + 
   scale_fill_manual(values = c('black', '#CFB87C')) + 
-  labs(title = 'Nordic Imbalance vs High Risk Status (All Time) for LBs',
+  labs(title = 'Nordic Imbalance vs High Risk Status (All Time) for DBs',
        x = 'Nordic Mean Imbalance (Absolute Value)',
-       y = 'Number of LBs',
+       y = 'Number of DBs',
        fill = 'High Risk Status') + 
+  geom_vline(xintercept = c(ID_111$Nordic.MEAN.Imbalance), col = 'orangered', linetype = 'dashed') + 
   theme_bw()
 ```
 
@@ -1955,13 +1976,14 @@ Significant: WRs, TEs, OLs, DBs, LBs, DLs
 
 ```{r, warning = FALSE}
 #creates a histogram of nordic mean imbalance for WRs filled by high risk status, position = 'identity' argument makes it so the bars do not stack and the vertical line is the example threshold found above
-ggplot(WRs, aes(Perc.Diff.Norm, fill = as.factor(HR))) + 
+ggplot(DBs, aes(Perc.Diff.Norm, fill = as.factor(HR))) + 
   geom_histogram(position = 'identity', alpha = 0.5, bins = 25) + 
   scale_fill_manual(values = c('black', '#CFB87C')) + 
-  labs(title = 'Nordic Imbalance vs High Risk Status (All Time) for WRs',
-       x = 'Nordic Mean Imbalance (Absolute Value)',
-       y = 'Number of WRs',
+  labs(title = 'Percent Diff. Norm vs High Risk Status (All Time) for DBs',
+       x = 'Percentage Difference from Norm',
+       y = 'Number of DBs',
        fill = 'High Risk Status') + 
+  geom_vline(xintercept = c(ID_111$Perc.Diff.Norm), col = 'orangered', linetype = 'dashed') + 
   theme_bw()
 ```
 
@@ -1980,6 +2002,18 @@ t.test(Trend.Num ~ HR, data = DLs, alternative = 'greater')
 ```
 
 Trend only is significant for high risk in DLs, DBs, QBs 
+
+```{r, warning = FALSE}
+#creates a histogram of nordic mean imbalance for WRs filled by high risk status, position = 'identity' argument makes it so the bars do not stack and the vertical line is the example threshold found above
+ggplot(QBs, aes(Trend.Num, fill = as.factor(HR))) + 
+  geom_histogram(position = 'identity', alpha = 0.5, bins = 3) + 
+  scale_fill_manual(values = c('black', '#CFB87C')) + 
+  labs(title = 'Strength Trend vs High Risk Status (All Time) for QBs',
+       x = 'Strength Trend (-1:Down, 0:Neutral, 1:Up)',
+       y = 'Number of QBs',
+       fill = 'High Risk Status') + 
+  theme_bw()
+```
 
 
 # Question 3: Exploring Other Associations / Defining Thresholds
@@ -2120,6 +2154,18 @@ t.test(Maximum.Force ~ HSI, data = DLs)
 
 If we do t-test for maximum force grouped by HSI occurence the p-values are a lot more significant. DLs are the only very obviously not significant and QBs are next but have a far lower p-value than DLS. 
 
+```{r, warning = FALSE}
+#creates a histogram of maximum force from norm for OLs filled by HSI status, position = 'identity' argument makes it so the bars do not stack and the vertical line is the example threshold found above
+ggplot(OLs, aes(Maximum.Force, fill = as.factor(HSI))) + 
+  geom_histogram(position = 'identity', alpha = 0.5, bins = 25) + 
+  scale_fill_manual(values = c('black', '#CFB87C')) + 
+  labs(title = 'Maximum Force vs HSI Status (All Time) for O-Linemen',
+       x = 'Maximum Force (Nordic)',
+       y = 'Number of O-Linemen',
+       fill = 'HSI Status') + 
+  theme_bw()
+```
+
 ### Bilateral Measures
 
 ```{r}
@@ -2146,6 +2192,18 @@ t.test(Maximum.Nordic.Bilateral.Mean ~ HSI, data = OLs)
 t.test(Maximum.Nordic.Bilateral.Mean ~ HSI, data = DBs)
 t.test(Maximum.Nordic.Bilateral.Mean ~ HSI, data = LBs)
 t.test(Maximum.Nordic.Bilateral.Mean ~ HSI, data = DLs)
+```
+
+```{r, warning = FALSE}
+#creates a histogram of percent difference from norm for RBs filled by HSI status, position = 'identity' argument makes it so the bars do not stack and the vertical line is the example threshold found above
+ggplot(DBs, aes(Maximum.Nordic.Bilateral.Mean, fill = as.factor(HSI))) + 
+  geom_histogram(position = 'identity', alpha = 0.5, bins = 25) + 
+  scale_fill_manual(values = c('black', '#CFB87C')) + 
+  labs(title = 'Maximum Force vs HSI Status (All Time) for RBs',
+       x = 'Maximum Force (Nordic)',
+       y = 'Number of RBs',
+       fill = 'HSI Status') + 
+  theme_bw()
 ```
 
 Only RBs and DBs are statistically significant but OLs is close with a p-value of 0.07
@@ -2254,6 +2312,18 @@ t.test(Max.Acceleration ~ HSI, data = LBs_c)
 t.test(Max.Acceleration ~ HSI, data = DLs_c)
 ```
 
+```{r, warning = FALSE}
+#creates a histogram of percent difference from norm for DBs filled by HSI status, position = 'identity' argument makes it so the bars do not stack and the vertical line is the example threshold found above
+ggplot(DBs_c, aes(Max.Acceleration, fill = as.factor(HSI))) + 
+  geom_histogram(position = 'identity', alpha = 0.5, bins = 25) + 
+  scale_fill_manual(values = c('black', '#CFB87C')) + 
+  labs(title = 'Maximum Force vs HSI Status (All Time) for O-Linemen',
+       x = 'Maximum Force (Nordic)',
+       y = 'Number of O-Linemen',
+       fill = 'HSI Status') + 
+  theme_bw()
+```
+
 Significant for defensive players: DBs with HSI have on average a higher max acceleration, opposite is true for other defensive players
 
 
@@ -2318,13 +2388,12 @@ All but LBs are statistically significant. RBs and DBs that experienced HSI have
 
 ```{r}
 #creates a histogram of overall wellness score for WRs filled by HSI status, position = 'identity' argument makes it so the bars do not stack and the vertical line is the example threshold found above
-ggplot(WRs_w, aes(Overall.Wellness.Score, fill = as.factor(HSI))) + 
-  geom_histogram(position = 'identity', alpha = 0.5, bins = 20) + 
+ggplot(RBs_w, aes(Soreness.Score, fill = as.factor(HSI))) + 
+  geom_histogram(position = 'identity', alpha = 0.5, bins = 25) + 
   scale_fill_manual(values = c('black', '#CFB87C')) + 
-  labs(title = 'Nordic Imbalance vs HSI Insidence (All Time) for WRs',
-       x = 'Nordic Mean Imbalance (Absolute Value)',
-       y = 'Number of WRs',
+  labs(title = 'Overall Wellness Score vs HSI Insidence (All Time) for RBs',
+       x = 'Overall Wellness Score',
+       y = 'Number of RBs',
        fill = 'HSI Occurence') + 
-  geom_vline(xintercept = 14.80082, col = 'black', linetype = 'dashed') +
   theme_bw()
 ```
