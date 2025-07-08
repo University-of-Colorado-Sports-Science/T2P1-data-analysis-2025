@@ -456,7 +456,6 @@ sum(filtered_QB$Highrisk_binary) # number of QB deemed high risk
 sum(filtered_QB$HSI) # number of QB w/ an HSI injury
 ```
 
-
 ```{r}
 #find rate of high risk per position also rate of HSI per position 
 #WIDE RECIEVER 
@@ -568,9 +567,6 @@ merge_incid <- merge_incid %>%
 #  summarise(Body.Part,OSICS14.Code.x = paste0(OSICS14.Code.x, collapse = " and ")) %>%
  # mutate(Injuries.Last.3.Months = ifelse(is.na(Group) | Group == 0, sapply(strsplit(OSICS14.Code.y, " and "), length), sapply(strsplit(OSICS14.Code.y, " and "), length) - 1))
 ```
-
-
-
 
 2.  Merging Wellness
 
@@ -1437,8 +1433,6 @@ table(HSIincident_vs_risk2$Status,HSIincident_vs_risk2$HSI)
 table(HSIincident_vs_risk2$Position)
 ```
 
-
-
 ```{r}
 #ordinal variable 
 HSIincident_vs_risk2$Status <- factor(
@@ -1470,6 +1464,7 @@ actual <- factor(HSIincident_vs_risk2$HSI, levels = c(0, 1))
 #confusion matrix
 confusionMatrix(pred, actual)
 ```
+
 ```{r}
 ##MODEL 2
 #model evaluation
@@ -1483,6 +1478,7 @@ actuall <- factor(HSIincident_vs_risk2$HSI, levels = c(0, 1))
 #confusion matrix
 confusionMatrix(predd, actuall)
 ```
+
 ```{r}
 ##MODEL 1
 library(pROC)
@@ -1491,7 +1487,6 @@ roc_obj <- roc(HSIincident_vs_risk2$HSI, HSIincident_vs_risk2$pred_prob_q1)
 plot(roc_obj, main="ROC Curve", col="pink",lwd=3)
 auc(roc_obj)
 ```
-
 
 ```{r}
 ##MODEL 2
@@ -1523,6 +1518,7 @@ subsequent//following HSI injury risk?
 ## TRY AGAIN WITH MY BIGGER// BETTER DATASET filter_full3_merge// SEE IF RESULTS COME OUT BETTER THAT WAY
 
 ## Modeling & Evaluations
+
 ```{r}
 #get positions for all players + risk status +highrisk_binary 
 start <- left_join(player_byposition, riskstatus2, by=c("anon_id"))
@@ -1698,11 +1694,8 @@ if (sum(!is.na(pos_data[[metric]])) > 20 &&
 }
 ```
 
-
-
-
-
 #Multimetric Threshold Matrix -create a risk score by counting how many thresholds an athlete breaches
+
 ```{r}
 thresh_final <- thresh_final %>%
   mutate(
@@ -1741,6 +1734,7 @@ flagged_athletes <- thresh_final %>%
 #file of at risk athletes 
 write_csv(flagged_athletes, "flagged_athletes.csv")
 ```
+
 ```{r}
 nrow(unique(flagged_athletes))
 ```
@@ -1811,6 +1805,62 @@ risk_table <- thresh_final %>%
 write_csv(risk_table, "risk_score_summary.csv")
 ```
 
+```{r}
+# Convert risk_score to factor
+thresh_final$risk_score <- factor(thresh_final$risk_score)
+thresh_final1 <- thresh_final %>%
+  na.omit()
+# Plot
+plot1 <- ggplot(thresh_final1, aes(x = Position, fill = risk_score)) +
+  geom_bar(position = "stack") +
+  scale_fill_manual(
+    values = c("1"="lightyellow","2"="#CFB87C","3"="white","4"="#A2A4A3", "5"="#565A5C","6"="#000000")) +
+  labs(
+    title = "Count of Risk Scores by Position",
+    x = "Positions",
+    y = "Count",
+    fill = "Risk Score"
+)
+```
+
+```{r}
+#position by actual injury incident  
+plot2 <- ggplot(thresh_final, aes(x = Position, fill = HSI)) +
+  geom_bar(position = "stack") +
+  scale_fill_manual(values=c("1"= "#CFB87C", "0"= "#A2A4A3")) +
+  labs(
+    title = "Athletes with HSI vs No HSI by Position",
+    x = "Positions",
+    y = "Count",
+    fill = "HSI Occurence"
+  ) +
+  theme_minimal()
+
+#position by past risk status (watchlist)
+plot3 <- ggplot(thresh_final, aes(x = Position, fill = Status)) +
+  geom_bar(position = "stack") + #stat="identity"
+  scale_fill_manual(values=c("High"= "#CFB87C", "Medium"= "#000000", "Routine"= "#A2A4A3")) +
+  labs(
+    title = "Athletes by Position + Watchlist Status",
+    x = "Positions",
+    y = "Count",
+    fill = "Watchlist Status"
+  ) +
+  theme_minimal()
+```
+
+
+```{r}
+#athletes flagged by different variables/components for the risk score
+plot5 <- thresh_final %>%
+  summarise(across(ends_with("_flag"), sum)) %>%
+  pivot_longer(cols = everything(), names_to = "Flag", values_to = "Count") %>%
+  ggplot(aes(x = Flag, y = Count)) +
+  geom_col(fill = "#CFB87C") +
+  labs(title = "Number of Athletes Flagged by Each Metric", y = "Count")
+
+plot <- plot5 + theme(axis.text.x=element_text(angle=90,vjust=0.5,hjust=1))
+```
 
 
 
