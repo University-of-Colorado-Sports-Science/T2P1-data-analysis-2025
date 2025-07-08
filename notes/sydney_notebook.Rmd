@@ -1816,6 +1816,8 @@ plot1 <- ggplot(thresh_final1, aes(x = Position, fill = risk_score)) +
 )
 ```
 
+
+
 ```{r}
 #position by actual HSI injury incident  
 plot2 <- ggplot(thresh_final, aes(x = Position, fill = HSI)) +
