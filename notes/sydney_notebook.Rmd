@@ -1515,7 +1515,6 @@ P-values < alpha therefore statistically significant.
 Q2// Q3
 
 ## Modeling & Evaluations
-
 ```{r}
 #get positions for all players + risk status +highrisk_binary 
 start <- left_join(player_byposition, riskstatus2, by=c("anon_id"))
@@ -1808,9 +1807,9 @@ thresh_final1 <- thresh_final %>%
 plot1 <- ggplot(thresh_final1, aes(x = Position, fill = risk_score)) +
   geom_bar(position = "stack") +
   scale_fill_manual(
-    values = c("1"="lightyellow","2"="#CFB87C","3"="white","4"="#A2A4A3", "5"="#565A5C","6"="#000000")) +
+    values = c("1"="#CFB87C","2"="lightyellow","3"="white","4"="#000000", "5"="#565A5C","6"="#A2A4A3")) +
   labs(
-    title = "Count of Risk Scores by Position",
+    title = "Athletes by Position + Risk Scores",
     x = "Positions",
     y = "Count",
     fill = "Risk Score"
@@ -1821,7 +1820,7 @@ plot1 <- ggplot(thresh_final1, aes(x = Position, fill = risk_score)) +
 #position by actual HSI injury incident  
 plot2 <- ggplot(thresh_final, aes(x = Position, fill = HSI)) +
   geom_bar(position = "stack") +
-  scale_fill_manual(values=c("1"= "#CFB87C", "0"= "#A2A4A3")) +
+  scale_fill_manual(values=c("1"= "#A2A4A3", "0"= "#CFB87C")) +
   labs(
     title = "Athletes with HSI vs No HSI by Position",
     x = "Positions",
@@ -1833,12 +1832,12 @@ plot2 <- ggplot(thresh_final, aes(x = Position, fill = HSI)) +
 #position by past risk status (watchlist)
 plot3 <- ggplot(thresh_final, aes(x = Position, fill = Status)) +
   geom_bar(position = "stack") + #stat="identity"
-  scale_fill_manual(values=c("High"= "#CFB87C", "Medium"= "#000000", "Routine"= "#A2A4A3")) +
+  scale_fill_manual(values=c("High"="#A2A4A3", "Medium"="#565A5C","Low"="#000000", "Routine"="#CFB87C")) +
   labs(
-    title = "Athletes by Position + Watchlist Status",
+    title = "Athletes by Position + Watchlist Risk Status",
     x = "Positions",
     y = "Count",
-    fill = "Watchlist Status"
+    fill = "Risk Status"
   ) +
   theme_minimal()
 ```
