@@ -1523,7 +1523,6 @@ subsequent//following HSI injury risk?
 ## TRY AGAIN WITH MY BIGGER// BETTER DATASET filter_full3_merge// SEE IF RESULTS COME OUT BETTER THAT WAY
 
 ## Modeling & Evaluations
-
 ```{r}
 #get positions for all players + risk status +highrisk_binary 
 start <- left_join(player_byposition, riskstatus2, by=c("anon_id"))
@@ -1561,6 +1560,7 @@ Incid <- na.omit(incid)
 ```
 
 ```{r}
+# new 
 #MERGE start1, wEll, vaLd, 
 thresh_data <- merge(wEll, vaLd, by=c("anon_id"))
 thresh_data1 <- merge(thresh_data, start1, by=c("anon_id"))  #507 obs.
@@ -1598,17 +1598,34 @@ thresh_data_final <- thresh_data_final %>%
 #binary for contact hit 
 Contacthit_binary=ifelse(thresh_data_final$General.mechanism=="Contact",1,0)#riskflag for contact 
 thresh_data_final$Contacthit_binary = Contacthit_binary
+```
 
-#Z SCORES AND FLAGS FOR RISK and to determine thresholds off of 
+```{r}
+#Z SCORES AND FLAGS FOR RISK and to determine thresholds off of
 thresh_final <- thresh_data_final %>%
-  mutate(nordic_imbalance_flag= if_else(nordic_imbalance_score<-1.28|nordic_imbalance_score>1.28,1,0),
-         nordic_zscore=mean(Avg.Nordic.Left.Z.Score+Avg.Nordic.Right.Z.Score),
-         force_zscore= scale(Avg.Maximum.Force),
-         #time_injured_flag= if_else(Time.Injured> 13.25,1,0),
-         trend_flag=if_else(Trend<1,1,0),   #1 is meaning it is a concerning trend (DOWN)
-         recurrence_flag=if_else(Recurrence.of.Injury>1,1,0), #concerning aka 2nd injury 
-         mechanism_flag=if_else(General.mechanism>=1,1,0))   #flag goes up for contact sport
+  mutate(
+    # Z-scores for continuous variables
+    nordic_zscore = scale(Avg.Nordic.Left.Z.Score + Avg.Nordic.Right.Z.Score),
+    force_zscore = scale(Avg.Maximum.Force),
+    percent_diff_zscore = scale(Percent.Difference.Norm),
+    positional_norm_zscore = scale(Positional.Norm),
+    eccentric_power_zscore = scale(Eccentric.Peak.Power...Relative),
 
+    # Binary flags based on thresholds
+    nordic_imbalance_flag = if_else(nordic_imbalance_score < -1.28 | nordic_imbalance_score > 1.28, 1, 0),
+    trend_flag = if_else(Trend < 1, 1, 0),                     # DOWN trend is 1 (concerning)
+    recurrence_flag = if_else(Recurrence.of.Injury > 1, 1, 0),# First recurrence = 1 (2 multiple)
+    mechanism_flag = if_else(General.mechanism >= 1, 1, 0),   # Contact = 1 (concerning)
+    percent_diff_flag = if_else(abs(percent_diff_zscore) > 1.28, 1, 0),
+    positional_norm_flag = if_else(abs(positional_norm_zscore) > 1.28, 1, 0),
+    eccentric_power_flag = if_else(abs(eccentric_power_zscore) > 1.28, 1, 0),
+    nordic_zscore_flag = if_else(abs(nordic_zscore) > 1.28, 1, 0),
+    force_zscore_flag = if_else(abs(force_zscore) > 1.28, 1, 0),
+    trend_flag = if_else(Trend < 0.5, 1, 0)
+  )
+```
+
+```{r}
 #convert all categorical variables to factors 
 thresh_final$anon_id <- as.factor(thresh_final$anon_id)
 thresh_final$Status <- as.factor(thresh_final$Status)
@@ -1633,11 +1650,10 @@ ggplot(data=thresh_final, aes(x =Status, y = nordic_imbalance_flag)) +
   geom_boxplot(width = 0.1)
 ```
 
-
 ```{r}
 #LOOP THROUGH ALL POSITIONS TO CREATE THRESHOLDS OF EACH METRIC TAKING POSITION UNDER CONSIDERATION
 positions <- unique(thresh_final$Position)
-metrics <- c("Avg.Nordic.Left.Z.Score","Avg.Nordic.Right.Z.Score","nordic_zscore", "force_zscore", "recurrence_flag", "mechanism_flag","nordic_imbalance_flag")
+metrics <- c(nordic_zscore_flag,force_zscore_flag,percent_diff_flag,positional_norm_flag, eccentric_power_flag,recurrence_flag,mechanism_flag,trend_flag)
 
 for (pos in positions){
     pos_data <- subset(thresh_final, Position == pos)
@@ -1656,8 +1672,8 @@ for (pos in positions){
     cat("High-risk quantiles:\n")
     print(quantile(high_group[[metric]], probs = c(0.1, 0.25, 0.5, 0.75), na.rm = TRUE))
 
-   #quantiles for injured group
-    cat("Injured group quantiles:\n")
+   #quantiles for HSI injured group
+    cat("HSI Injured group quantiles:\n")
     print(quantile(injured_group[[metric]], probs = c(0.1, 0.25, 0.5, 0.75), na.rm = TRUE))
 
     #ROC analysis
@@ -1680,23 +1696,28 @@ if (sum(!is.na(pos_data[[metric]])) > 20 &&
 
   }
 }
-##SAVYING ONLY 1 CLASS OF HSI //BUT THATS NOT TRUE
 ```
 
-#Multimetric Threshold Matrix -create a risk score by counting how many thresholds an athlete breaches
 
+
+
+
+#Multimetric Threshold Matrix -create a risk score by counting how many thresholds an athlete breaches
 ```{r}
 thresh_final <- thresh_final %>%
-mutate(
+  mutate(
     risk_score = as.numeric(nordic_imbalance_flag) +
                  as.numeric(recurrence_flag) +
                  as.numeric(mechanism_flag) +
-                 as.numeric(nordic_zscore) +
-                 as.numeric(force_zscore)
+                 as.numeric(nordic_zscore_flag) +
+                 as.numeric(force_zscore_flag) +
+                 as.numeric(percent_diff_flag) +
+                 as.numeric(positional_norm_flag) +
+                 as.numeric(eccentric_power_flag)+
+                 as.numeric(trend_flag)
   )
-
-#each component contributes either 0 or 1, total risk score==range from 0 to 5
-
+#each component contributes either 0 or 1, total risk score==range from 0 to 9
+##0== no risk, 4-5 moderate risk, 6-9 HIGH RISK
 #then logistic model
 model_score <- glm(HSI ~ risk_score, data = thresh_final, family = "binomial")
 summary(model_score)
@@ -1708,7 +1729,7 @@ ggplot(thresh_final, aes(x = as.factor(risk_score), fill = HSI)) +
 
 #Export Athletes Who Trigger Flags thru risk score 
 flagged_athletes <- thresh_final %>%
-  filter(risk_score >= 4) %>%
+  filter(risk_score >= 4) %>%  #THIS DATASET ONLY GOES UP TO LEVEL 6 RISK THO
   mutate(
     Avg.Nordic.Left.Z.Score = as.numeric(Avg.Nordic.Left.Z.Score),
     Avg.Nordic.Right.Z.Score = as.numeric(Avg.Nordic.Right.Z.Score),
@@ -1720,6 +1741,79 @@ flagged_athletes <- thresh_final %>%
 #export a file of at risk athletes 
 write_csv(flagged_athletes, "flagged_athletes.csv")
 ```
+
+```{r}
+#FINAL RISK SCORE VISUAL
+library(ggplot2)
+
+#proportions of injures by risk score
+ggplot(thresh_final, aes(x = as.factor(risk_score), fill = HSI)) +
+  geom_bar(position = "fill") +
+  scale_y_continuous(labels = scales::percent) +
+  labs(
+    title = "Proportion of HSI by Risk Score",
+    x = "Risk Score",
+    y = "Proportion Injured",
+    fill = "HSI"
+  ) +
+  theme_minimal()
+
+#count of athletes by risk scores + injury 
+ggplot(thresh_final, aes(x = as.factor(risk_score), fill = HSI)) +
+  geom_bar(position = "stack") +
+  labs(
+    title = "Count of HSI vs No HSI by Risk Score",
+    x = "Risk Score",
+    y = "Number of Athletes",
+    fill = "HSI"
+  ) +
+  theme_minimal()
+```
+
+```{r}
+## probability curve 
+# Fit model
+model_score <- glm(HSI ~ risk_score, data = thresh_final, family = "binomial")
+
+# Create predicted probabilities
+risk_pred <- thresh_final %>%
+  group_by(risk_score) %>%
+  summarise(
+    count = n(),
+    hsi_rate = mean(as.numeric(as.character(HSI))),
+    predicted_prob = predict(model_score, newdata = data.frame(risk_score = unique(risk_score)), type = "response")
+  )
+
+# Plot predicted probability
+ggplot(risk_pred, aes(x = risk_score)) +
+  geom_line(aes(y = predicted_prob), color = "darkred", size = 1.2) +
+  geom_point(aes(y = hsi_rate), color = "black", size = 3) +
+  labs(
+    title = "Predicted Probability of HSI by Risk Score",
+    x = "Risk Score",
+    y = "Probability of HSI"
+  ) +
+  theme_minimal()
+
+#export risk score table
+risk_table <- thresh_final %>%
+  group_by(risk_score) %>%
+  summarise(
+    Total = n(),
+    HSI_Count = sum(as.numeric(as.character(HSI))),
+    HSI_Rate = mean(as.numeric(as.character(HSI)))
+  )
+
+write_csv(risk_table, "risk_score_summary.csv")
+```
+
+
+
+
+
+
+
+
 
 ```{r}
 min(thresh_final$Date, na.rm=TRUE)  # june, 27, 2024
