@@ -9,7 +9,9 @@ output: html_notebook
 #Author Date: 06/09/2025
 #Purpose: The purpose of this notebook is to house all data set transformation, cleansing, visualization, statistical analysis, and note-taking for the 2025 CU Athletic Department Sports Science Internship Program..
 
+
 #LAST UPDATED: 07/01/2025
+
 
 #Including helpful libraries
 library(tidyverse)
@@ -35,13 +37,6 @@ VALD <- read.csv("~/T2P1-data-analysis-2025/data-sets/VALD - Performance Test FB
 wellness <- read.csv("~/T2P1-data-analysis-2025/data-sets/Wellness Report FB.csv")
 positional <- read_csv('data-sets/data-sets-uncompressed/Positional Performance Normative.csv')
 positions <- read_csv('data-sets/data-sets-uncompressed/deid_pos.csv')
-```
-
-```{r}
-perfnorm_byposition <- read.csv("~/T2P1-data-analysis-2025/data-sets/FB Performance Normative Data 2024.csv")  ##NEW GIVEN DATASET TO LOOK INTO
-```
-```{r}
-player_byposition <- read.csv("~/T2P1-data-analysis-2025/data-sets/deid_pos.csv")
 ```
 
 ```{r}
@@ -371,6 +366,7 @@ filtered_VALD <- filtered_VALD %>%
             Nordic...Difference.from.First.Test = mean(Nordic...Difference.from.First.Test, na.rm = TRUE)) %>%
   ungroup()
 
+
 Vald <- VALD %>%
   transmute(anon_id, Session.Date, Position = Sport.Position, Trend, Maximum.Force, Nordic.Left.MAX, Nordic.Right.MAX, Nordic.MEAN.Imbalance.with.side, Nordic...Difference.from.First.Test, Nordic.Season.Average.Left, Nordic.Season.Average.Right, Nordic.MEAN.Imbalance, Hip.Abd.Trend, Hip.Abd.Percent.Difference.Norm, L3.Hip.Abduction.Mean.Imbalance, Hip.Add.Trend, Hip.Add.Percent.Difference.Norm, L3.Hip.Adduction.Mean.Imbalance, L3.Bilateral.Hip.Abduction.Adduction.Ratio, Maximum.Nordic.Bilateral.Mean, Nordic.Maximum.Bilateral.Force) %>%
   mutate(Position = ifelse(Position == 'DB|WR', 'DB', Position))
@@ -430,6 +426,13 @@ filtered_wellness <- filtered_wellness %>%
   na.omit()
 ```
 
+```{r}
+#function for mode
+get_mode <- function(v) {
+  uniqv <- unique(v)
+  uniqv[which.max(tabulate(match(v, uniqv)))]
+}
+```
 
 # Attempting to Merge Datasets into One filtered by date
   ##1st look at Data by Position.
@@ -672,7 +675,6 @@ merge_catapult <- merge_catapult %>%
 5. Merging ACWR
 ```{r}
 merge_acwr <- merge(HSI_last_injury, acwr_merge, by = c('anon_id'), all = TRUE)
-
 merge_acwr <- merge_acwr %>%
   mutate(Group = ifelse(Injury.1.Start <= Date & Date <= Injury.1, 1, ifelse(Injury.2.Start <= Date & Date <= Injury.2, 2, ifelse(Injury.3.Start <= Date & Date <= Injury.3, 3, ifelse(Injury.4.Start <= Date & Date <= Injury.4, 4, 0)))))
 
@@ -4641,7 +4643,10 @@ incident_med_HSI2 <- incident_med_HSI %>%
   summarize(Outcome = paste0(FinalDiagnosisIncidentDate, collapse = " and "))
 ```
 
+
+Player ID_194 has a duplicate injury with both 'Left Hamstring strain/tear' and 'Left Semimembranosis/tendinosis strain (grade 1 - 2)' being listed for 06/05/24. 
 Player ID_489 has a duplicate injury with both 'Left Knee medial collateral ligament injury' and 'Left Grade 2 MCL tear knee' being listed for 11/23/24, but this is not as important to us. Player ID_595 has a duplicate injury of 'Left Ankle sprains' on 08/15/24. 
+
 
 ```{r, warning = FALSE}
 #combines the dates the athletes were deemed high risk with their injuries and separates the injury occurrences and dates
@@ -4689,6 +4694,7 @@ ggplot(tests_outcomes_med, aes(x = outcomes_med, fill = outcomes_med)) +
        y = 'Number of Observations') + 
   theme_bw()
 ```
+Most injuries are new injuries so more difficult to predict as recurrence of injury is not that prevelant of a determining variable.
 
 There appear to be no observations of HSI following a player being deemed as "Medium" risk for injury. Is this because it is harder to deem what is a medium risk? Least amount of players put into the medium risk status category.
 ```{r}
@@ -4715,6 +4721,7 @@ rout_risk <- unique(Riskstatus_rout$anon_id)
 rout_risk <- unique(Riskstatus_rout$anon_id)
 ```
 
+2. Players Deemed Low Risk
 ```{r}
 #filtering the incident report to only show those deemed low risk with only lower body injuries as well as only HSI related injuries
 incident_rout_all <- filtered_incident %>%
@@ -5049,6 +5056,8 @@ flagged_athletes <- thresh_final %>%
 write_csv(flagged_athletes, "flagged_athletes.csv")
 ```
 
+Q1. Does simply being deemed as high risk on the soft tissue watch list predict HSI incidence?
+## 3 MONTH VALIDATION
 ```{r}
 min(thresh_final$Date, na.rm=TRUE)  # june, 27, 2024
 max(thresh_final$Date, na.rm=TRUE)
@@ -5064,11 +5073,3 @@ table(final_merge_full$HSI,final_merge_full$Status)
 ```
 
 NOTE: HSI events are more rare causing a class in balance (majority class== no injury), can lead to misleading data
-
-
-
-
-
-
-
-
